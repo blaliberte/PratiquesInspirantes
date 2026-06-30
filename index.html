@@ -767,14 +767,16 @@ function App() {
                             </button>
                         </>
                     ) : (
-                        <button onClick={() => setShowSuggest(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-white/15 text-white text-xs font-bold rounded-xl hover:bg-white/25 transition-all border border-white/20">
-                            <Icon name="lightbulb" size={13}/> Suggérer une pratique
-                        </button>
-                        <button onClick={() => setShowLogin(true)}
-                            className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white/50 text-xs font-bold rounded-xl hover:bg-white/20 hover:text-white transition-all border border-white/10">
-                            <Icon name="lock" size={13}/> Admin
-                        </button>
+                        <>
+                            <button onClick={() => setShowSuggest(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-white/15 text-white text-xs font-bold rounded-xl hover:bg-white/25 transition-all border border-white/20">
+                                <Icon name="lightbulb" size={13}/> Suggérer une pratique
+                            </button>
+                            <button onClick={() => setShowLogin(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white/50 text-xs font-bold rounded-xl hover:bg-white/20 hover:text-white transition-all border border-white/10">
+                                <Icon name="lock" size={13}/> Admin
+                            </button>
+                        </>
                     )}
                 </div>
             </header>

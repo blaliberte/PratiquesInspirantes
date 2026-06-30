@@ -410,8 +410,20 @@ function App() {
 
     const loadData = useCallback(async () => {
         setLoading(true);
-        const { data, error } = await sb.from('pratiques').select('*').order('pratique');
-        if (!error) setAllData(data || []);
+        try {
+            const res = await fetch(
+                SUPABASE_URL + '/rest/v1/pratiques?select=*&order=pratique.asc',
+                { headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                }}
+            );
+            const data = await res.json();
+            console.log('Supabase response:', res.status, data);
+            setAllData(Array.isArray(data) ? data : []);
+        } catch(e) {
+            console.error('Erreur chargement:', e);
+        }
         setLoading(false);
     }, []);
 

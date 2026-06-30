@@ -56,6 +56,7 @@ const SUPABASE_URL      = 'https://rutkgkkczklaviblobnn.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1dGtna2tjemtsYXZpYmxvYm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzUwNTUsImV4cCI6MjA5ODQxMTA1NX0.IWToBCc5I8zuAZWQbHRdFEJ47TamskDVpfBtGXvERvk';
 // ─────────────────────────────────────────────────────────────────────────────
 
+const EDGE_FUNCTION_URL = 'https://rutkgkkczklaviblobnn.supabase.co/functions/v1/nouvelle-suggestion';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const Icon = ({ name, size = 18, className = "" }) => (
@@ -368,6 +369,191 @@ function ImportModal({ onClose, onDone }) {
     );
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// MODALE SUGGESTION (visiteurs)
+// ════════════════════════════════════════════════════════════════════════════
+function SuggestionModal({ onClose }) {
+    const [form, setForm] = useState({ pratique: '', site: '', description: '', niveau: '', theme: '' });
+    const [status, setStatus] = useState('idle'); // idle | loading | done | error
+    const [err, setErr] = useState('');
+    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    const handleSubmit = async () => {
+        if (!form.pratique.trim()) return;
+        setStatus('loading');
+        try {
+            const res = await fetch(EDGE_FUNCTION_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            setStatus('done');
+        } catch(e) {
+            setErr(e.message);
+            setStatus('error');
+        }
+    };
+
+    const inp = "w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-bleu-royal/30 outline-none text-sm";
+    const lbl = "text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider block mb-1";
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col modal-box" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100">
+                    <div>
+                        <h2 className="font-display font-bold text-bleu-nuit text-lg">Suggérer une pratique</h2>
+                        <p className="text-xs text-slate-400 mt-0.5">Votre suggestion sera examinée avant d'être publiée</p>
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><Icon name="x" size={20}/></button>
+                </div>
+
+                {status === 'done' ? (
+                    <div className="flex flex-col items-center justify-center py-16 px-7 gap-4">
+                        <div className="text-5xl">🎉</div>
+                        <h3 className="font-display font-bold text-bleu-nuit text-xl">Merci !</h3>
+                        <p className="text-sm text-slate-500 text-center">Votre suggestion a été envoyée et sera examinée par notre équipe.</p>
+                        <button onClick={onClose} className="mt-2 px-6 py-2.5 bg-bleu-royal text-white rounded-xl font-bold text-sm hover:bg-bleu-nuit transition-colors">Fermer</button>
+                    </div>
+                ) : (
+                    <>
+                        <div className="overflow-y-auto px-7 py-6 space-y-4 flex-1">
+                            <div>
+                                <label className={lbl}>Nom de la pratique <span className="text-corail">*</span></label>
+                                <input value={form.pratique} onChange={e => set('pratique', e.target.value)}
+                                    className={inp} placeholder="Ex : Atelier de zoothérapie"/>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className={lbl}>Site / CSSS</label>
+                                    <input value={form.site} onChange={e => set('site', e.target.value)}
+                                        className={inp} placeholder="Ex : CISSS du BSL"/>
+                                </div>
+                                <div>
+                                    <label className={lbl}>Niveau</label>
+                                    <select value={form.niveau} onChange={e => set('niveau', e.target.value)} className={inp}>
+                                        <option value="">— Choisir —</option>
+                                        {['Opérationnel', 'Tactique', 'Stratégique'].map(n => <option key={n}>{n}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className={lbl}>Thème</label>
+                                <input value={form.theme} onChange={e => set('theme', e.target.value)}
+                                    className={inp} placeholder="Ex : Pair-aidance"/>
+                            </div>
+                            <div>
+                                <label className={lbl}>Description</label>
+                                <textarea value={form.description} onChange={e => set('description', e.target.value)}
+                                    rows={4} className={`${inp} resize-y`} placeholder="Décrivez la pratique en quelques lignes…"/>
+                            </div>
+                            {status === 'error' && (
+                                <p className="text-red-500 text-xs font-semibold bg-red-50 px-3 py-2 rounded-lg">{err}</p>
+                            )}
+                        </div>
+                        <div className="flex justify-end gap-3 px-7 py-5 border-t border-slate-100">
+                            <button onClick={onClose} className="px-5 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:border-slate-300 transition-colors">
+                                Annuler
+                            </button>
+                            <button onClick={handleSubmit} disabled={status === 'loading' || !form.pratique.trim()}
+                                className="px-5 py-2 rounded-xl bg-corail text-white text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-40">
+                                {status === 'loading' ? 'Envoi…' : 'Soumettre'}
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// PANNEAU SUGGESTIONS (admin)
+// ════════════════════════════════════════════════════════════════════════════
+function SuggestionsPanel({ onClose, onApprove }) {
+    const [suggestions, setSuggestions] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const loadSuggestions = async () => {
+        setLoading(true);
+        const { data } = await sb.from('suggestions')
+            .select('*')
+            .eq('statut', 'en_attente')
+            .order('created_at', { ascending: false });
+        setSuggestions(data || []);
+        setLoading(false);
+    };
+
+    useEffect(() => { loadSuggestions(); }, []);
+
+    const handleApprove = async (s) => {
+        await sb.from('suggestions').update({ statut: 'approuvée' }).eq('id', s.id);
+        await sb.from('pratiques').insert({
+            pratique: s.pratique, site: s.site || '', csss: s.site || '',
+            description: s.description || '', niveau: s.niveau || '',
+            theme: s.theme || '', statut: 'Implanté',
+        });
+        onApprove();
+        loadSuggestions();
+    };
+
+    const handleReject = async (id) => {
+        await sb.from('suggestions').update({ statut: 'rejetée' }).eq('id', id);
+        loadSuggestions();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col modal-box" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100">
+                    <h2 className="font-display font-bold text-bleu-nuit text-lg">Suggestions en attente</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><Icon name="x" size={20}/></button>
+                </div>
+
+                <div className="overflow-y-auto flex-1 px-7 py-6">
+                    {loading && <p className="text-center text-slate-400 py-10 animate-pulse">Chargement…</p>}
+                    {!loading && suggestions.length === 0 && (
+                        <div className="text-center py-16">
+                            <p className="text-4xl mb-3">✅</p>
+                            <p className="text-slate-400 text-sm font-medium">Aucune suggestion en attente</p>
+                        </div>
+                    )}
+                    <div className="space-y-4">
+                        {suggestions.map(s => (
+                            <div key={s.id} className="border border-slate-200 rounded-2xl p-5 space-y-3">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <p className="font-bold text-slate-900">{s.pratique}</p>
+                                        <p className="text-xs text-slate-400 mt-0.5">
+                                            {new Date(s.created_at).toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                            {s.site && ` · ${s.site}`}
+                                            {s.niveau && ` · ${s.niveau}`}
+                                        </p>
+                                    </div>
+                                    <div className="flex gap-2 shrink-0">
+                                        <button onClick={() => handleReject(s.id)}
+                                            className="px-3 py-1.5 rounded-lg border border-red-200 text-red-400 text-xs font-bold hover:border-red-400 hover:text-red-500 transition-colors">
+                                            Rejeter
+                                        </button>
+                                        <button onClick={() => handleApprove(s)}
+                                            className="px-3 py-1.5 rounded-lg bg-bleu-royal text-white text-xs font-bold hover:bg-bleu-nuit transition-colors">
+                                            Approuver
+                                        </button>
+                                    </div>
+                                </div>
+                                {s.theme && <p className="text-xs text-slate-500 italic">Thème : {s.theme}</p>}
+                                {s.description && <p className="text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-3">{s.description}</p>}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // APPLICATION PRINCIPALE
 // ════════════════════════════════════════════════════════════════════════════
@@ -388,6 +574,8 @@ function App() {
     const [showLogin, setShowLogin]   = useState(false);
     const [showImport, setShowImport] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
+    const [showSuggest, setShowSuggest] = useState(false);
+    const [showSuggestions, setShowSuggestions] = useState(false);
 
     useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
 
@@ -540,7 +728,9 @@ function App() {
     return (
         <div className="min-h-screen flex flex-col">
 
-            {showLogin   && <LoginModal  onClose={() => setShowLogin(false)} />}
+            {showLogin      && <LoginModal       onClose={() => setShowLogin(false)} />}
+            {showSuggest    && <SuggestionModal  onClose={() => setShowSuggest(false)} />}
+            {showSuggestions && <SuggestionsPanel onClose={() => setShowSuggestions(false)} onApprove={loadData} />}
             {showImport  && <ImportModal onClose={() => setShowImport(false)} onDone={loadData} />}
             {editingItem && <EditModal   item={editingItem} onClose={() => setEditingItem(null)} onSave={handleSave} onDelete={handleDelete} />}
 
@@ -563,12 +753,24 @@ function App() {
                                 className="flex items-center gap-2 px-3 py-2 bg-white/10 text-white/70 text-xs font-bold rounded-xl hover:bg-white/20 transition-all border border-white/20">
                                 <Icon name="upload" size={14}/> Importer JSON
                             </button>
+                            <button onClick={() => setShowSuggestions(true)}
+                                className="flex items-center gap-2 px-3 py-2 bg-corail/20 text-corail text-xs font-bold rounded-xl hover:bg-corail/30 transition-all border border-corail/30">
+                                <Icon name="inbox" size={14}/> Suggestions
+                            </button>
+                            <button onClick={() => setShowSuggest(true)}
+                                className="flex items-center gap-2 px-3 py-2 bg-white/10 text-white/70 text-xs font-bold rounded-xl hover:bg-white/20 transition-all border border-white/20">
+                                <Icon name="lightbulb" size={14}/> Suggérer
+                            </button>
                             <button onClick={() => sb.auth.signOut()} title="Se déconnecter"
                                 className="p-2 text-white/30 hover:text-white/70 transition-colors rounded-lg">
                                 <Icon name="log-out" size={16}/>
                             </button>
                         </>
                     ) : (
+                        <button onClick={() => setShowSuggest(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-white/15 text-white text-xs font-bold rounded-xl hover:bg-white/25 transition-all border border-white/20">
+                            <Icon name="lightbulb" size={13}/> Suggérer une pratique
+                        </button>
                         <button onClick={() => setShowLogin(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white/50 text-xs font-bold rounded-xl hover:bg-white/20 hover:text-white transition-all border border-white/10">
                             <Icon name="lock" size={13}/> Admin

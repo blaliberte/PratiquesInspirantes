@@ -445,6 +445,25 @@ function App() {
         await loadData();
     };
 
+    const handleLike = async (item) => {
+        const newLikes = (item.likes || 0) + 1;
+        // Optimistic update
+        setAllData(prev => prev.map(d => d.id === item.id ? { ...d, likes: newLikes } : d));
+        await fetch(
+            SUPABASE_URL + '/rest/v1/pratiques?id=eq.' + item.id,
+            {
+                method: 'PATCH',
+                headers: {
+                    'apikey': SUPABASE_ANON_KEY,
+                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal',
+                },
+                body: JSON.stringify({ likes: newLikes }),
+            }
+        );
+    };
+
     const filteredData = useMemo(() => {
         return allData.filter(item => {
             const q = searchQuery.toLowerCase();
@@ -462,6 +481,9 @@ function App() {
             return matchesSearch && matchesStaticFilters && matchesSite && matchesInnovation;
         }).sort((a, b) => {
             const key = sortConfig.key === 'site' ? 'csss' : sortConfig.key;
+            if (key === 'likes') {
+                return (b.likes || 0) - (a.likes || 0);
+            }
             const aV = String(a[key] || '').toLowerCase();
             const bV = String(b[key] || '').toLowerCase();
             if (aV < bV) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -598,6 +620,7 @@ function App() {
                             <option value="niveau">Niveau</option>
                             <option value="statut">Statut</option>
                             <option value="theme">Thématique</option>
+                            <option value="likes">J'aime</option>
                         </select>
                     </div>
                 </div>
@@ -615,12 +638,13 @@ function App() {
                                     <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[9%] text-center">Thème</th>
                                     <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[20%]">Description</th>
                                     <th className="px-8 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[20%] text-center">Innovation</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[6%] text-center">J'aime</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredData.length === 0 && (
                                     <tr>
-                                        <td colSpan={user ? 8 : 7} className="text-center py-20 text-slate-400 text-sm font-medium">
+                                        <td colSpan={user ? 9 : 8} className="text-center py-20 text-slate-400 text-sm font-medium">
                                             Aucun résultat pour cette recherche.
                                         </td>
                                     </tr>
@@ -669,6 +693,15 @@ function App() {
                                                     )
                                                 )}
                                             </div>
+                                        </td>
+                                        <td className="px-6 py-7 align-top text-center">
+                                            <button onClick={() => handleLike(item)}
+                                                className="flex flex-col items-center gap-1 mx-auto group/like">
+                                                <span className="text-xl transition-transform group-hover/like:scale-125 active:scale-95">❤️</span>
+                                                <span className="text-xs font-bold text-slate-400 group-hover/like:text-corail transition-colors">
+                                                    {item.likes || 0}
+                                                </span>
+                                            </button>
                                         </td>
                                     </tr>
                                 ))}

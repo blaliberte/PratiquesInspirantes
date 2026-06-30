@@ -445,8 +445,19 @@ function App() {
         await loadData();
     };
 
+    // Likes déjà donnés, stockés dans sessionStorage (reset à la fermeture du navigateur)
+    const [likedIds, setLikedIds] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem('aire_liked') || '[]')); }
+        catch { return new Set(); }
+    });
+
     const handleLike = async (item) => {
+        if (likedIds.has(item.id)) return; // déjà aimé
         const newLikes = (item.likes || 0) + 1;
+        const newLikedIds = new Set(likedIds);
+        newLikedIds.add(item.id);
+        setLikedIds(newLikedIds);
+        localStorage.setItem('aire_liked', JSON.stringify(Array.from(newLikedIds)));
         // Optimistic update
         setAllData(prev => prev.map(d => d.id === item.id ? { ...d, likes: newLikes } : d));
         await fetch(
@@ -695,10 +706,12 @@ function App() {
                                             </div>
                                         </td>
                                         <td className="px-6 py-7 align-top text-center">
-                                            <button onClick={() => handleLike(item)}
-                                                className="flex flex-col items-center gap-1 mx-auto group/like">
-                                                <span className="text-xl transition-transform group-hover/like:scale-125 active:scale-95">❤️</span>
-                                                <span className="text-xs font-bold text-slate-400 group-hover/like:text-corail transition-colors">
+                                            <button onClick={() => handleLike(item)} disabled={likedIds.has(item.id)}
+                                                className={`flex flex-col items-center gap-1 mx-auto transition-all ${likedIds.has(item.id) ? 'cursor-default opacity-70' : 'group/like hover:scale-110 active:scale-95'}`}>
+                                                <span className="text-xl transition-transform">
+                                                    {likedIds.has(item.id) ? '❤️' : '🤍'}
+                                                </span>
+                                                <span className={`text-xs font-bold transition-colors ${likedIds.has(item.id) ? 'text-corail' : 'text-slate-400'}`}>
                                                     {item.likes || 0}
                                                 </span>
                                             </button>

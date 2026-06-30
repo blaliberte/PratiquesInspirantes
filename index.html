@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projet AIRE - Registre des pratiques inspirantes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'bleu-nuit':  '#00255B',
+                        'bleu-royal': '#0F408F',
+                        'bordeaux':   '#461220',
+                        'ivoire':     '#F8F3ED',
+                        'glacier':    '#DCEAF6',
+                        'corail':     '#FF6B57',
+                    },
+                    fontFamily: {
+                        sans:    ['Work Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+                        display: ['Bricolage Grotesque', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <style>
+        body { font-family: 'Work Sans', sans-serif; }
+        h1, h2, .font-display { font-family: 'Bricolage Grotesque', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #0F408F; border-radius: 4px; }
+        .custom-dropdown-scroll { max-height: 350px; overflow-y: auto; }
+        .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .modal-overlay { animation: fadeIn 0.15s ease; }
+        .modal-box    { animation: slideUp 0.2s ease; }
+        @keyframes fadeIn  { from { opacity: 0; }                               to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(16px); }  to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-ivoire text-slate-900">
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo, useRef, useCallback } = React;
+
+// ─── CONFIG SUPABASE — remplacer ces deux valeurs ────────────────────────────
+const SUPABASE_URL      = 'https://rutkgkkczklaviblobnn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_vwbj0w36hpWhA7KpB2lpnA_R779E94e';
+// ─────────────────────────────────────────────────────────────────────────────
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const Icon = ({ name, size = 18, className = "" }) => (
+    <i data-lucide={name} style={{ width: size, height: size }} className={`inline-block ${className}`}></i>
+);
+
+const BOOL_FIELDS = [
+    { key: 'intervention',  label: 'Intervention',  color: 'bg-pink-50 text-pink-600 border-pink-100' },
+    { key: 'outil',         label: 'Outil',          color: 'bg-orange-50 text-orange-600 border-orange-100' },
+    { key: 'participation', label: 'Participation',  color: 'bg-purple-50 text-purple-600 border-purple-100' },
+    { key: 'partenariat',   label: 'Partenariat',    color: 'bg-yellow-50 text-yellow-600 border-yellow-100' },
+    { key: 'demarchage',    label: 'Démarchage',     color: 'bg-blue-50 text-blue-600 border-blue-100' },
+    { key: 'technologie',   label: 'Technologie',    color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+    { key: 'formation',     label: 'Formation',      color: 'bg-sky-50 text-sky-600 border-sky-100' },
+    { key: 'donnees',       label: 'Données',        color: 'bg-teal-50 text-teal-600 border-teal-100' },
+    { key: 'modele',        label: 'Modèle',         color: 'bg-violet-50 text-violet-600 border-violet-100' },
+    { key: 'promotion',     label: 'Promotion',      color: 'bg-rose-50 text-rose-600 border-rose-100' },
+];
+
+const STATUTS = ['Implanté', 'En développement', 'En cours', 'Planifié', 'Abandonné'];
+const NIVEAUX = ['Opérationnel', 'Tactique', 'Stratégique'];
+
+const emptyRecord = () => ({
+    pratique: '', site: '', site_long: '', csss: '',
+    statut: 'Implanté', description: '', niveau: '', theme: '',
+    intervention: false, outil: false, participation: false, partenariat: false,
+    demarchage: false, technologie: false, formation: false, donnees: false,
+    modele: false, promotion: false,
+});
+
+function parseInnovationJson(rawData) {
+    return rawData.reduce((acc, item) => {
+        const mainKey = Object.keys(item).find(k => k.includes('Pratique')) || '';
+        let fullLine = item[mainKey] || '';
+        if (item['null'] && Array.isArray(item['null'])) fullLine += item['null'].join(' ');
+        if (!fullLine.trim()) return acc;
+        const p = fullLine.split(';');
+        if (p.length < 5) return acc;
+        const x = v => (v || '').trim().toUpperCase() === 'X';
+        acc.push({
+            pratique:      (p[0]  || '').trim(),
+            site:          (p[1]  || '').trim(),
+            site_long:     (p[2]  || '').trim(),
+            csss:          (p[3]  || '').trim(),
+            statut:        (p[4]  || '').trim(),
+            description:   (p[5]  || '').trim(),
+            niveau:        (p[6]  || '').trim(),
+            theme:         (p[7]  || '').trim(),
+            intervention:  x(p[8]),
+            outil:         x(p[9]),
+            participation: x(p[10]),
+            partenariat:   x(p[11]),
+            demarchage:    x(p[12]),
+            technologie:   x(p[13]),
+            formation:     x(p[14]),
+            donnees:       x(p[15]),
+            modele:        x(p[16]),
+            promotion:     x(p[17]),
+        });
+        return acc;
+    }, []);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MODALE LOGIN
+// ════════════════════════════════════════════════════════════════════════════
+function LoginModal({ onClose }) {
+    const [email, setEmail]       = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError]       = useState('');
+    const [loading, setLoading]   = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true); setError('');
+        const { error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) { setError(error.message); setLoading(false); return; }
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-8 modal-box" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="font-display font-bold text-bleu-nuit text-xl">Connexion admin</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><Icon name="x" size={20}/></button>
+                </div>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider block mb-1">Courriel</label>
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} required autoFocus
+                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-bleu-royal/30 outline-none text-sm"/>
+                    </div>
+                    <div>
+                        <label className="text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider block mb-1">Mot de passe</label>
+                        <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
+                            className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-bleu-royal/30 outline-none text-sm"/>
+                    </div>
+                    {error && <p className="text-red-500 text-xs font-semibold bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+                    <button type="submit" disabled={loading}
+                        className="w-full bg-bleu-royal text-white font-bold py-3 rounded-xl hover:bg-bleu-nuit transition-colors disabled:opacity-50 mt-2">
+                        {loading ? 'Connexion…' : 'Se connecter'}
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MODALE ÉDITION / CRÉATION
+// ════════════════════════════════════════════════════════════════════════════
+function EditModal({ item, onClose, onSave, onDelete }) {
+    const [form, setForm]           = useState({ ...item });
+    const [saving, setSaving]       = useState(false);
+    const [deleting, setDeleting]   = useState(false);
+    const [confirmDel, setConfirmDel] = useState(false);
+
+    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+    const handleSave = async () => {
+        if (!form.pratique.trim()) return;
+        setSaving(true);
+        await onSave(form);
+        setSaving(false);
+        onClose();
+    };
+
+    const handleDelete = async () => {
+        if (!confirmDel) { setConfirmDel(true); return; }
+        setDeleting(true);
+        await onDelete(form.id);
+    };
+
+    const inp = "w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-bleu-royal/30 outline-none text-sm transition-shadow";
+    const lbl = "text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider block mb-1";
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col modal-box" onClick={e => e.stopPropagation()}>
+
+                <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100">
+                    <h2 className="font-display font-bold text-bleu-nuit text-lg">
+                        {item.id ? 'Modifier la pratique' : 'Nouvelle pratique'}
+                    </h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><Icon name="x" size={20}/></button>
+                </div>
+
+                <div className="overflow-y-auto px-7 py-6 space-y-5 flex-1">
+
+                    <div>
+                        <label className={lbl}>Pratique ou particularité <span className="text-corail">*</span></label>
+                        <input value={form.pratique} onChange={e => set('pratique', e.target.value)}
+                            className={inp} placeholder="Nom de la pratique"/>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className={lbl}>Code site</label>
+                            <input value={form.site} onChange={e => set('site', e.target.value)} className={inp} placeholder="01-BSL"/>
+                        </div>
+                        <div>
+                            <label className={lbl}>Site (libellé)</label>
+                            <input value={form.site_long} onChange={e => set('site_long', e.target.value)} className={inp} placeholder="01 - Bas-Saint-Laurent"/>
+                        </div>
+                        <div>
+                            <label className={lbl}>CSSS</label>
+                            <input value={form.csss} onChange={e => set('csss', e.target.value)} className={inp} placeholder="CISSS du…"/>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className={lbl}>Statut</label>
+                            <select value={form.statut} onChange={e => set('statut', e.target.value)} className={inp}>
+                                {STATUTS.map(s => <option key={s}>{s}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className={lbl}>Niveau</label>
+                            <select value={form.niveau} onChange={e => set('niveau', e.target.value)} className={inp}>
+                                <option value="">— Choisir —</option>
+                                {NIVEAUX.map(n => <option key={n}>{n}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className={lbl}>Thème</label>
+                            <input value={form.theme} onChange={e => set('theme', e.target.value)} className={inp} placeholder="Ex : Pair-aidance"/>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className={lbl}>Description</label>
+                        <textarea value={form.description} onChange={e => set('description', e.target.value)}
+                            rows={4} className={`${inp} resize-y`} placeholder="Description détaillée de la pratique…"/>
+                    </div>
+
+                    <div>
+                        <label className={lbl}>Types d'innovation</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-2">
+                            {BOOL_FIELDS.map(({ key, label }) => (
+                                <label key={key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all select-none ${
+                                    form[key] ? 'bg-bleu-royal border-bleu-royal text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-bleu-royal/40'
+                                }`}>
+                                    <input type="checkbox" checked={!!form[key]} onChange={e => set(key, e.target.checked)} className="sr-only"/>
+                                    <Icon name={form[key] ? 'check-square' : 'square'} size={13}/>
+                                    <span className="text-xs font-bold">{label}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-between px-7 py-5 border-t border-slate-100">
+                    <div>
+                        {item.id && (
+                            <button onClick={handleDelete} disabled={deleting}
+                                className={`text-xs font-bold px-4 py-2 rounded-lg border transition-all ${
+                                    confirmDel ? 'bg-red-500 border-red-500 text-white' : 'border-red-200 text-red-400 hover:border-red-400 hover:text-red-500'
+                                }`}>
+                                {deleting ? 'Suppression…' : confirmDel ? '⚠ Confirmer la suppression' : 'Supprimer'}
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="px-5 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:border-slate-300 transition-colors">
+                            Annuler
+                        </button>
+                        <button onClick={handleSave} disabled={saving || !form.pratique.trim()}
+                            className="px-5 py-2 rounded-xl bg-bleu-royal text-white text-sm font-bold hover:bg-bleu-nuit transition-colors disabled:opacity-40">
+                            {saving ? 'Enregistrement…' : item.id ? 'Enregistrer' : 'Créer'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MODALE IMPORT JSON
+// ════════════════════════════════════════════════════════════════════════════
+function ImportModal({ onClose, onDone }) {
+    const [status, setStatus] = useState('idle');
+    const [count, setCount]   = useState(0);
+    const [err, setErr]       = useState('');
+
+    const handleFile = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setStatus('loading');
+        try {
+            const text    = await file.text();
+            const raw     = JSON.parse(text);
+            const records = parseInnovationJson(raw);
+            for (let i = 0; i < records.length; i += 50) {
+                const { error } = await sb.from('pratiques').insert(records.slice(i, i + 50));
+                if (error) throw error;
+            }
+            setCount(records.length);
+            setStatus('done');
+            onDone();
+        } catch (e) {
+            setErr(e.message || "Erreur lors de l'importation");
+            setStatus('error');
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 modal-box" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="font-display font-bold text-bleu-nuit text-xl">Importer innovation.json</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><Icon name="x" size={20}/></button>
+                </div>
+
+                {status === 'idle' && (
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-500 leading-relaxed">
+                            Sélectionnez votre fichier <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-xs">innovation.json</code> pour importer toutes les pratiques.
+                            Cette opération <strong>ajoute</strong> les entrées sans effacer les existantes.
+                        </p>
+                        <label className="flex flex-col items-center gap-3 border-2 border-dashed border-slate-200 rounded-xl p-10 cursor-pointer hover:border-bleu-royal/40 hover:bg-glacier/20 transition-all">
+                            <Icon name="upload-cloud" size={32} className="text-slate-300"/>
+                            <span className="text-sm font-bold text-slate-400">Choisir le fichier JSON</span>
+                            <input type="file" accept=".json" onChange={handleFile} className="sr-only"/>
+                        </label>
+                    </div>
+                )}
+                {status === 'loading' && (
+                    <div className="text-center py-10">
+                        <p className="font-display font-bold text-bleu-nuit animate-pulse text-lg">Importation en cours…</p>
+                    </div>
+                )}
+                {status === 'done' && (
+                    <div className="text-center py-6 space-y-2">
+                        <div className="text-5xl font-display font-bold text-bleu-royal">{count}</div>
+                        <p className="text-slate-500 text-sm">pratiques importées avec succès ✓</p>
+                        <button onClick={onClose} className="mt-4 px-6 py-2.5 bg-bleu-royal text-white rounded-xl font-bold text-sm hover:bg-bleu-nuit transition-colors">Fermer</button>
+                    </div>
+                )}
+                {status === 'error' && (
+                    <div className="text-center py-6 space-y-3">
+                        <p className="text-red-500 text-sm font-semibold bg-red-50 px-4 py-3 rounded-xl">{err}</p>
+                        <button onClick={() => setStatus('idle')} className="text-sm font-bold text-bleu-royal underline">Réessayer</button>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// APPLICATION PRINCIPALE
+// ════════════════════════════════════════════════════════════════════════════
+function App() {
+    const [allData, setAllData]   = useState([]);
+    const [loading, setLoading]   = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [isSiteDropdownOpen, setIsSiteDropdownOpen] = useState(false);
+    const siteDropdownRef = useRef(null);
+
+    const [activeFilters, setActiveFilters] = useState({
+        statut: new Set(), niveau: new Set(), site: new Set(), innovation: new Set(),
+    });
+    const [sortConfig, setSortConfig]     = useState({ key: 'pratique', direction: 'asc' });
+    const [expandedRows, setExpandedRows] = useState(new Set());
+
+    const [user, setUser]             = useState(null);
+    const [showLogin, setShowLogin]   = useState(false);
+    const [showImport, setShowImport] = useState(false);
+    const [editingItem, setEditingItem] = useState(null);
+
+    useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
+
+    useEffect(() => {
+        sb.auth.getSession().then(({ data }) => setUser(data.session?.user || null));
+        const { data: { subscription } } = sb.auth.onAuthStateChange((_, session) => {
+            setUser(session?.user || null);
+        });
+        return () => subscription.unsubscribe();
+    }, []);
+
+    useEffect(() => {
+        const handler = (e) => {
+            if (siteDropdownRef.current && !siteDropdownRef.current.contains(e.target))
+                setIsSiteDropdownOpen(false);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const loadData = useCallback(async () => {
+        setLoading(true);
+        const { data, error } = await sb.from('pratiques').select('*').order('pratique');
+        if (!error) setAllData(data || []);
+        setLoading(false);
+    }, []);
+
+    useEffect(() => { loadData(); }, [loadData]);
+
+    const handleSave = async (form) => {
+        const { id, created_at, updated_at, ...payload } = form;
+        if (id) {
+            await sb.from('pratiques').update(payload).eq('id', id);
+        } else {
+            await sb.from('pratiques').insert(payload);
+        }
+        await loadData();
+    };
+
+    const handleDelete = async (id) => {
+        await sb.from('pratiques').delete().eq('id', id);
+        setEditingItem(null);
+        await loadData();
+    };
+
+    const filteredData = useMemo(() => {
+        return allData.filter(item => {
+            const q = searchQuery.toLowerCase();
+            const matchesSearch = !q || [item.pratique, item.theme, item.description, item.csss, item.statut, item.site_long]
+                .some(v => (v || '').toLowerCase().includes(q));
+            const matchesStaticFilters = ['statut', 'niveau'].every(key =>
+                activeFilters[key].size === 0 || activeFilters[key].has(item[key])
+            );
+            const matchesSite = activeFilters.site.size === 0 || activeFilters.site.has(item.csss);
+            const matchesInnovation = activeFilters.innovation.size === 0 ||
+                Array.from(activeFilters.innovation).every(label => {
+                    const field = BOOL_FIELDS.find(f => f.label === label);
+                    return field ? item[field.key] === true : false;
+                });
+            return matchesSearch && matchesStaticFilters && matchesSite && matchesInnovation;
+        }).sort((a, b) => {
+            const key = sortConfig.key === 'site' ? 'csss' : sortConfig.key;
+            const aV = String(a[key] || '').toLowerCase();
+            const bV = String(b[key] || '').toLowerCase();
+            if (aV < bV) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aV > bV) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [allData, searchQuery, activeFilters, sortConfig]);
+
+    const toggleFilter = (key, value) => {
+        setActiveFilters(prev => {
+            const next = new Set(prev[key]);
+            if (next.has(value)) next.delete(value); else next.add(value);
+            return { ...prev, [key]: next };
+        });
+    };
+
+    const toggleRow = (id) => {
+        setExpandedRows(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const getBubbleClass = (filterKey, value) => {
+        const isActive = activeFilters[filterKey].has(value);
+        return `px-3 py-1 text-[0.7rem] font-bold rounded-full border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
+            isActive ? 'bg-bleu-royal border-bleu-royal text-white shadow-md' : 'bg-slate-100 border-slate-200 text-slate-600 hover:border-bleu-royal/30'}`;
+    };
+
+    const getInnovBubbleClass = (label, color) => {
+        const isActive = activeFilters.innovation.has(label);
+        return `px-2.5 py-1 text-[0.72rem] font-bold rounded-lg border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
+            isActive ? 'bg-bleu-royal border-bleu-royal text-white shadow-md' : color}`;
+    };
+
+    if (loading) return (
+        <div className="h-screen flex items-center justify-center font-display font-bold text-bleu-nuit animate-pulse uppercase tracking-widest text-lg">
+            Chargement…
+        </div>
+    );
+
+    return (
+        <div className="min-h-screen flex flex-col">
+
+            {showLogin   && <LoginModal  onClose={() => setShowLogin(false)} />}
+            {showImport  && <ImportModal onClose={() => setShowImport(false)} onDone={loadData} />}
+            {editingItem && <EditModal   item={editingItem} onClose={() => setEditingItem(null)} onSave={handleSave} onDelete={handleDelete} />}
+
+            {/* En-tête */}
+            <header className="bg-bleu-nuit h-20 sticky top-0 z-50 flex items-center px-6 lg:px-12 shadow-xl border-b border-white/10">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
+                    <img src="20251006_Aire_Logo_VF_LogoCirculaire_ProjetAire_Blanc.png" alt="Logo AIRE" className="w-12 h-12 object-contain shrink-0"/>
+                    <span className="font-display font-bold text-white text-xl md:text-2xl tracking-tight leading-none uppercase truncate">
+                        Registre des pratiques inspirantes
+                    </span>
+                </div>
+                <div className="flex items-center gap-2 ml-4 shrink-0">
+                    {user ? (
+                        <>
+                            <button onClick={() => setEditingItem(emptyRecord())}
+                                className="flex items-center gap-2 px-4 py-2 bg-corail text-white text-xs font-bold rounded-xl hover:opacity-90 transition-opacity">
+                                <Icon name="plus" size={14}/> Nouvelle pratique
+                            </button>
+                            <button onClick={() => setShowImport(true)}
+                                className="flex items-center gap-2 px-3 py-2 bg-white/10 text-white/70 text-xs font-bold rounded-xl hover:bg-white/20 transition-all border border-white/20">
+                                <Icon name="upload" size={14}/> Importer JSON
+                            </button>
+                            <button onClick={() => sb.auth.signOut()} title="Se déconnecter"
+                                className="p-2 text-white/30 hover:text-white/70 transition-colors rounded-lg">
+                                <Icon name="log-out" size={16}/>
+                            </button>
+                        </>
+                    ) : (
+                        <button onClick={() => setShowLogin(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white/50 text-xs font-bold rounded-xl hover:bg-white/20 hover:text-white transition-all border border-white/10">
+                            <Icon name="lock" size={13}/> Admin
+                        </button>
+                    )}
+                </div>
+            </header>
+
+            {/* Hero */}
+            <div className="bg-bleu-royal pt-10 pb-12 px-6 lg:px-12 border-b border-white/5">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-6">
+                    <div className="flex-1 w-full relative group">
+                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-bleu-royal group-focus-within:text-bleu-nuit transition-colors pointer-events-none">
+                            <Icon name="search" size={22}/>
+                        </div>
+                        <input type="text"
+                            placeholder="Rechercher une pratique, un site, un mot-clé…"
+                            className="w-full pl-14 pr-6 py-4 bg-white rounded-2xl shadow-2xl border-0 focus:ring-4 focus:ring-white/30 text-lg outline-none transition-all placeholder-slate-400 font-medium text-slate-800"
+                            value={searchQuery} onChange={e => setSearchQuery(e.target.value)}/>
+                    </div>
+                    <div className="w-full md:w-80 relative" ref={siteDropdownRef}>
+                        <button onClick={() => setIsSiteDropdownOpen(!isSiteDropdownOpen)}
+                            className="w-full flex items-center justify-between px-6 py-4 bg-white/10 border border-white/20 rounded-2xl text-white text-base font-bold hover:bg-white/20 transition-all shadow-xl backdrop-blur-sm">
+                            <span className="truncate">
+                                {activeFilters.site.size === 0 ? 'Tous les sites' : `${activeFilters.site.size} site(s) sélectionné(s)`}
+                            </span>
+                            <Icon name={isSiteDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20}/>
+                        </button>
+                        {isSiteDropdownOpen && (
+                            <div className="absolute z-50 mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 custom-dropdown-scroll">
+                                {Array.from(new Set(allData.map(d => d.csss))).filter(Boolean).sort().map(v => (
+                                    <label key={v} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer group transition-colors">
+                                        <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-bleu-royal focus:ring-bleu-royal"
+                                            checked={activeFilters.site.has(v)} onChange={() => toggleFilter('site', v)}/>
+                                        <span className="text-[0.75rem] font-bold text-slate-700 group-hover:text-bleu-royal">{v}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <button onClick={() => { setSearchQuery(''); setActiveFilters({ statut: new Set(), niveau: new Set(), site: new Set(), innovation: new Set() }); }}
+                        className="text-white/50 hover:text-corail transition-colors uppercase font-bold text-xs border-b border-white/10 hover:border-corail pb-1 whitespace-nowrap">
+                        Réinitialiser
+                    </button>
+                </div>
+            </div>
+
+            <main className="flex-1 max-w-[1600px] mx-auto w-full px-6 lg:px-12 py-10">
+
+                <div className="flex items-center justify-between mb-6 px-2">
+                    <div className="text-sm font-medium text-slate-500">
+                        <span className="text-bleu-royal font-bold text-lg mr-2">{filteredData.length}</span>résultat{filteredData.length !== 1 ? 's' : ''}
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Trier par</span>
+                        <select className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-glacier/30 cursor-pointer shadow-sm"
+                            value={sortConfig.key} onChange={e => setSortConfig({ key: e.target.value, direction: 'asc' })}>
+                            <option value="pratique">Nom de la pratique</option>
+                            <option value="site">Site (CSSS)</option>
+                            <option value="niveau">Niveau</option>
+                            <option value="statut">Statut</option>
+                            <option value="theme">Thématique</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-[2rem] shadow-2xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse min-w-[1100px]">
+                            <thead>
+                                <tr className="bg-slate-50/80 border-b border-slate-200">
+                                    {user && <th className="px-4 py-5 w-[3%]"></th>}
+                                    <th className="px-8 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[16%]">Pratique</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[14%] text-center">Site</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[9%] text-center">Niveau</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[9%] text-center">Statut</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[9%] text-center">Thème</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[20%]">Description</th>
+                                    <th className="px-8 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[20%] text-center">Innovation</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {filteredData.length === 0 && (
+                                    <tr>
+                                        <td colSpan={user ? 8 : 7} className="text-center py-20 text-slate-400 text-sm font-medium">
+                                            Aucun résultat pour cette recherche.
+                                        </td>
+                                    </tr>
+                                )}
+                                {filteredData.map(item => (
+                                    <tr key={item.id} className="hover:bg-slate-50/40 transition-colors group">
+                                        {user && (
+                                            <td className="px-4 py-7 align-top">
+                                                <button onClick={() => setEditingItem(item)}
+                                                    className="p-1.5 rounded-lg text-slate-300 hover:text-bleu-royal hover:bg-bleu-royal/10 transition-all opacity-0 group-hover:opacity-100">
+                                                    <Icon name="pencil" size={14}/>
+                                                </button>
+                                            </td>
+                                        )}
+                                        <td className="px-8 py-7 align-top">
+                                            <span className="text-[0.9rem] font-bold text-slate-900 leading-snug block group-hover:text-bleu-royal transition-colors">
+                                                {item.pratique}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-7 align-top text-center text-[0.82rem] text-slate-600">{item.csss}</td>
+                                        <td className="px-6 py-7 align-top text-center">
+                                            {item.niveau && <button onClick={() => toggleFilter('niveau', item.niveau)} className={getBubbleClass('niveau', item.niveau)}>{item.niveau}</button>}
+                                        </td>
+                                        <td className="px-6 py-7 align-top text-center">
+                                            {item.statut && <button onClick={() => toggleFilter('statut', item.statut)} className={getBubbleClass('statut', item.statut)}>{item.statut}</button>}
+                                        </td>
+                                        <td className="px-6 py-7 align-top text-center text-[0.82rem] text-slate-600 italic">{item.theme}</td>
+                                        <td className="px-6 py-7 align-top">
+                                            <p className={`text-[0.82rem] text-slate-600 leading-relaxed ${expandedRows.has(item.id) ? '' : 'line-clamp-3'}`}>
+                                                {item.description}
+                                            </p>
+                                            {(item.description || '').length > 100 && (
+                                                <button onClick={() => toggleRow(item.id)} className="mt-2 text-[0.65rem] font-bold text-bleu-royal hover:underline uppercase">
+                                                    {expandedRows.has(item.id) ? 'Moins ▲' : 'Lire plus ▼'}
+                                                </button>
+                                            )}
+                                        </td>
+                                        <td className="px-8 py-7 align-top text-center">
+                                            <div className="flex flex-wrap justify-center gap-1.5">
+                                                {BOOL_FIELDS.map(({ key, label, color }) =>
+                                                    item[key] && (
+                                                        <button key={key} onClick={() => toggleFilter('innovation', label)}
+                                                            className={getInnovBubbleClass(label, color)}>
+                                                            {label}
+                                                        </button>
+                                                    )
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </main>
+
+            <footer className="py-12 border-t border-slate-200 mt-10 text-center opacity-30">
+                <span className="font-display font-bold text-bleu-nuit text-lg uppercase">Registre des pratiques inspirantes</span>
+                <p className="text-[0.6rem] font-bold uppercase tracking-widest mt-2">© {new Date().getFullYear()} AIRE OUVERTE</p>
+            </footer>
+        </div>
+    );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>

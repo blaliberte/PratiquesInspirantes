@@ -33,16 +33,17 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <style>
         body { font-family: 'Work Sans', sans-serif; }
-        h1, h2, .font-display { font-family: 'Bricolage Grotesque', sans-serif; }
+        .font-display { font-family: 'Bricolage Grotesque', sans-serif; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #0F408F; border-radius: 4px; }
         .custom-dropdown-scroll { max-height: 350px; overflow-y: auto; }
-        .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .modal-overlay { animation: fadeIn 0.15s ease; }
         .modal-box    { animation: slideUp 0.2s ease; }
-        @keyframes fadeIn  { from { opacity: 0; }                               to { opacity: 1; } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(16px); }  to { opacity: 1; transform: translateY(0); } }
+        .expanded-row { animation: expandDown 0.2s ease; }
+        @keyframes fadeIn     { from { opacity: 0; }                               to { opacity: 1; } }
+        @keyframes slideUp    { from { opacity: 0; transform: translateY(16px); }  to { opacity: 1; transform: translateY(0); } }
+        @keyframes expandDown { from { opacity: 0; transform: translateY(-8px); }  to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="bg-ivoire text-slate-900">
@@ -51,73 +52,92 @@
 <script type="text/babel">
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 
-// ─── CONFIG SUPABASE — remplacer ces deux valeurs ────────────────────────────
+// ─── Config ──────────────────────────────────────────────────────────────────
 const SUPABASE_URL      = 'https://rutkgkkczklaviblobnn.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ1dGtna2tjemtsYXZpYmxvYm5uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4MzUwNTUsImV4cCI6MjA5ODQxMTA1NX0.IWToBCc5I8zuAZWQbHRdFEJ47TamskDVpfBtGXvERvk';
-// ─────────────────────────────────────────────────────────────────────────────
-
 const EDGE_FUNCTION_URL = 'https://rutkgkkczklaviblobnn.supabase.co/functions/v1/nouvelle-suggestion';
+const TSV_FILE          = 'RegistreInnovation.tsv';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+const sbFetch = (path, opts = {}) => fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+        ...(opts.headers || {}),
+    },
+});
+
+// ─── Icône Lucide ─────────────────────────────────────────────────────────────
 const Icon = ({ name, size = 18, className = "" }) => (
     <i data-lucide={name} style={{ width: size, height: size }} className={`inline-block ${className}`}></i>
 );
 
+// ─── Champs booléens ──────────────────────────────────────────────────────────
 const BOOL_FIELDS = [
-    { key: 'intervention',  label: 'Intervention',  color: 'bg-pink-50 text-pink-600 border-pink-100' },
-    { key: 'outil',         label: 'Outil',          color: 'bg-orange-50 text-orange-600 border-orange-100' },
-    { key: 'participation', label: 'Participation',  color: 'bg-purple-50 text-purple-600 border-purple-100' },
-    { key: 'partenariat',   label: 'Partenariat',    color: 'bg-yellow-50 text-yellow-600 border-yellow-100' },
-    { key: 'demarchage',    label: 'Démarchage',     color: 'bg-blue-50 text-blue-600 border-blue-100' },
-    { key: 'technologie',   label: 'Technologie',    color: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
-    { key: 'formation',     label: 'Formation',      color: 'bg-sky-50 text-sky-600 border-sky-100' },
-    { key: 'donnees',       label: 'Données',        color: 'bg-teal-50 text-teal-600 border-teal-100' },
-    { key: 'modele',        label: 'Modèle',         color: 'bg-violet-50 text-violet-600 border-violet-100' },
-    { key: 'promotion',     label: 'Promotion',      color: 'bg-rose-50 text-rose-600 border-rose-100' },
+    { key: 'intervention',            label: 'Intervention',            color: 'bg-pink-50 text-pink-600 border-pink-200' },
+    { key: 'technologie_outil',       label: 'Technologie/Outil',       color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
+    { key: 'participation_proches',   label: 'Participation proches',   color: 'bg-purple-50 text-purple-600 border-purple-200' },
+    { key: 'participation_jeunes',    label: 'Participation jeunes',    color: 'bg-violet-50 text-violet-600 border-violet-200' },
+    { key: 'partenariat',             label: 'Partenariat',             color: 'bg-yellow-50 text-yellow-600 border-yellow-200' },
+    { key: 'promotion_outreach',      label: 'Promotion/Outreach',      color: 'bg-rose-50 text-rose-600 border-rose-200' },
+    { key: 'donnees',                 label: 'Données',                 color: 'bg-teal-50 text-teal-600 border-teal-200' },
+    { key: 'modalite_acces',          label: 'Modalité d\'accès',       color: 'bg-sky-50 text-sky-600 border-sky-200' },
+    { key: 'pair_aidance',            label: 'Pair-aidance',            color: 'bg-orange-50 text-orange-600 border-orange-200' },
+    { key: 'effets_services',         label: 'Effets services',         color: 'bg-lime-50 text-lime-600 border-lime-200' },
+    { key: 'sante_physique',          label: 'Santé physique',          color: 'bg-green-50 text-green-600 border-green-200' },
+    { key: 'accessibilite',           label: 'Accessibilité',           color: 'bg-cyan-50 text-cyan-600 border-cyan-200' },
+    { key: 'besoins',                 label: 'Besoins',                 color: 'bg-blue-50 text-blue-600 border-blue-200' },
+    { key: 'equite',                  label: 'Équité',                  color: 'bg-indigo-50 text-indigo-600 border-indigo-200' },
+    { key: 'soutenir_proches',        label: 'Soutenir proches',        color: 'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-200' },
+    { key: 'pouvoir_agir',            label: 'Pouvoir d\'agir',         color: 'bg-amber-50 text-amber-600 border-amber-200' },
+    { key: 'confiance',               label: 'Confiance',               color: 'bg-red-50 text-red-600 border-red-200' },
+    { key: 'coordination',            label: 'Coordination',            color: 'bg-slate-50 text-slate-600 border-slate-200' },
+    { key: 'adaptation_territoriale', label: 'Adaptation territoriale', color: 'bg-stone-50 text-stone-600 border-stone-200' },
 ];
 
-const STATUTS = ['Implanté', 'En développement', 'En cours', 'Planifié', 'Abandonné'];
 const NIVEAUX = ['Opérationnel', 'Tactique', 'Stratégique'];
 
-const emptyRecord = () => ({
-    pratique: '', site: '', site_long: '', csss: '',
-    statut: 'Implanté', description: '', niveau: '', theme: '',
-    intervention: false, outil: false, participation: false, partenariat: false,
-    demarchage: false, technologie: false, formation: false, donnees: false,
-    modele: false, promotion: false,
-});
+// ─── Parseur TSV ──────────────────────────────────────────────────────────────
+function parseTSV(text) {
+    const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim());
+    const headers = lines[0].split('\t');
+    const x = v => (v || '').trim().toUpperCase() === 'X';
+    const s = v => (v || '').trim();
 
-function parseInnovationJson(rawData) {
-    return rawData.reduce((acc, item) => {
-        const mainKey = Object.keys(item).find(k => k.includes('Pratique')) || '';
-        let fullLine = item[mainKey] || '';
-        if (item['null'] && Array.isArray(item['null'])) fullLine += item['null'].join(' ');
-        if (!fullLine.trim()) return acc;
-        const p = fullLine.split(';');
-        if (p.length < 5) return acc;
-        const x = v => (v || '').trim().toUpperCase() === 'X';
-        acc.push({
-            pratique:      (p[0]  || '').trim(),
-            site:          (p[1]  || '').trim(),
-            site_long:     (p[2]  || '').trim(),
-            csss:          (p[3]  || '').trim(),
-            statut:        (p[4]  || '').trim(),
-            description:   (p[5]  || '').trim(),
-            niveau:        (p[6]  || '').trim(),
-            theme:         (p[7]  || '').trim(),
-            intervention:  x(p[8]),
-            outil:         x(p[9]),
-            participation: x(p[10]),
-            partenariat:   x(p[11]),
-            demarchage:    x(p[12]),
-            technologie:   x(p[13]),
-            formation:     x(p[14]),
-            donnees:       x(p[15]),
-            modele:        x(p[16]),
-            promotion:     x(p[17]),
-        });
-        return acc;
-    }, []);
+    return lines.slice(1).filter(l => l.trim()).map(line => {
+        const p = line.split('\t');
+        return {
+            pratique:               s(p[0]),
+            site:                   s(p[1]),
+            description:            s(p[2]),
+            theme:                  s(p[3]),
+            intervention:           x(p[5]),
+            technologie_outil:      x(p[6]),
+            participation_proches:  x(p[7]),
+            participation_jeunes:   x(p[8]),
+            partenariat:            x(p[9]),
+            promotion_outreach:     x(p[10]),
+            donnees:                x(p[11]),
+            modalite_acces:         x(p[12]),
+            pair_aidance:           x(p[13]),
+            effets_services:        x(p[14]),
+            sante_physique:         x(p[15]),
+            accessibilite:          x(p[16]),
+            besoins:                x(p[17]),
+            equite:                 x(p[18]),
+            soutenir_proches:       x(p[19]),
+            pouvoir_agir:           x(p[20]),
+            confiance:              x(p[21]),
+            coordination:           x(p[22]),
+            adaptation_territoriale:x(p[23]),
+            doc:                    s(p[24]),
+            affiche:                s(p[25]),
+            recherche:              s(p[26]),
+            guide:                  s(p[27]),
+        };
+    }).filter(r => r.pratique);
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -157,7 +177,7 @@ function LoginModal({ onClose }) {
                     </div>
                     {error && <p className="text-red-500 text-xs font-semibold bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
                     <button type="submit" disabled={loading}
-                        className="w-full bg-bleu-royal text-white font-bold py-3 rounded-xl hover:bg-bleu-nuit transition-colors disabled:opacity-50 mt-2">
+                        className="w-full bg-bleu-royal text-white font-bold py-3 rounded-xl hover:bg-bleu-nuit transition-colors disabled:opacity-50">
                         {loading ? 'Connexion…' : 'Se connecter'}
                     </button>
                 </form>
@@ -167,215 +187,11 @@ function LoginModal({ onClose }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// MODALE ÉDITION / CRÉATION
-// ════════════════════════════════════════════════════════════════════════════
-function EditModal({ item, onClose, onSave, onDelete }) {
-    const [form, setForm]           = useState({ ...item });
-    const [saving, setSaving]       = useState(false);
-    const [deleting, setDeleting]   = useState(false);
-    const [confirmDel, setConfirmDel] = useState(false);
-
-    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-    const handleSave = async () => {
-        if (!form.pratique.trim()) return;
-        setSaving(true);
-        await onSave(form);
-        setSaving(false);
-        onClose();
-    };
-
-    const handleDelete = async () => {
-        if (!confirmDel) { setConfirmDel(true); return; }
-        setDeleting(true);
-        await onDelete(form.id);
-    };
-
-    const inp = "w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-bleu-royal/30 outline-none text-sm transition-shadow";
-    const lbl = "text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider block mb-1";
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col modal-box" onClick={e => e.stopPropagation()}>
-
-                <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100">
-                    <h2 className="font-display font-bold text-bleu-nuit text-lg">
-                        {item.id ? 'Modifier la pratique' : 'Nouvelle pratique'}
-                    </h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><Icon name="x" size={20}/></button>
-                </div>
-
-                <div className="overflow-y-auto px-7 py-6 space-y-5 flex-1">
-
-                    <div>
-                        <label className={lbl}>Pratique ou particularité <span className="text-corail">*</span></label>
-                        <input value={form.pratique} onChange={e => set('pratique', e.target.value)}
-                            className={inp} placeholder="Nom de la pratique"/>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3">
-                        <div>
-                            <label className={lbl}>Code site</label>
-                            <input value={form.site} onChange={e => set('site', e.target.value)} className={inp} placeholder="01-BSL"/>
-                        </div>
-                        <div>
-                            <label className={lbl}>Site (libellé)</label>
-                            <input value={form.site_long} onChange={e => set('site_long', e.target.value)} className={inp} placeholder="01 - Bas-Saint-Laurent"/>
-                        </div>
-                        <div>
-                            <label className={lbl}>CSSS</label>
-                            <input value={form.csss} onChange={e => set('csss', e.target.value)} className={inp} placeholder="CISSS du…"/>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-3">
-                        <div>
-                            <label className={lbl}>Statut</label>
-                            <select value={form.statut} onChange={e => set('statut', e.target.value)} className={inp}>
-                                {STATUTS.map(s => <option key={s}>{s}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className={lbl}>Niveau</label>
-                            <select value={form.niveau} onChange={e => set('niveau', e.target.value)} className={inp}>
-                                <option value="">— Choisir —</option>
-                                {NIVEAUX.map(n => <option key={n}>{n}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className={lbl}>Thème</label>
-                            <input value={form.theme} onChange={e => set('theme', e.target.value)} className={inp} placeholder="Ex : Pair-aidance"/>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label className={lbl}>Description</label>
-                        <textarea value={form.description} onChange={e => set('description', e.target.value)}
-                            rows={4} className={`${inp} resize-y`} placeholder="Description détaillée de la pratique…"/>
-                    </div>
-
-                    <div>
-                        <label className={lbl}>Types d'innovation</label>
-                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mt-2">
-                            {BOOL_FIELDS.map(({ key, label }) => (
-                                <label key={key} className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all select-none ${
-                                    form[key] ? 'bg-bleu-royal border-bleu-royal text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-bleu-royal/40'
-                                }`}>
-                                    <input type="checkbox" checked={!!form[key]} onChange={e => set(key, e.target.checked)} className="sr-only"/>
-                                    <Icon name={form[key] ? 'check-square' : 'square'} size={13}/>
-                                    <span className="text-xs font-bold">{label}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex items-center justify-between px-7 py-5 border-t border-slate-100">
-                    <div>
-                        {item.id && (
-                            <button onClick={handleDelete} disabled={deleting}
-                                className={`text-xs font-bold px-4 py-2 rounded-lg border transition-all ${
-                                    confirmDel ? 'bg-red-500 border-red-500 text-white' : 'border-red-200 text-red-400 hover:border-red-400 hover:text-red-500'
-                                }`}>
-                                {deleting ? 'Suppression…' : confirmDel ? '⚠ Confirmer la suppression' : 'Supprimer'}
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex gap-3">
-                        <button onClick={onClose} className="px-5 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:border-slate-300 transition-colors">
-                            Annuler
-                        </button>
-                        <button onClick={handleSave} disabled={saving || !form.pratique.trim()}
-                            className="px-5 py-2 rounded-xl bg-bleu-royal text-white text-sm font-bold hover:bg-bleu-nuit transition-colors disabled:opacity-40">
-                            {saving ? 'Enregistrement…' : item.id ? 'Enregistrer' : 'Créer'}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// ════════════════════════════════════════════════════════════════════════════
-// MODALE IMPORT JSON
-// ════════════════════════════════════════════════════════════════════════════
-function ImportModal({ onClose, onDone }) {
-    const [status, setStatus] = useState('idle');
-    const [count, setCount]   = useState(0);
-    const [err, setErr]       = useState('');
-
-    const handleFile = async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        setStatus('loading');
-        try {
-            const text    = await file.text();
-            const raw     = JSON.parse(text);
-            const records = parseInnovationJson(raw);
-            for (let i = 0; i < records.length; i += 50) {
-                const { error } = await sb.from('pratiques').insert(records.slice(i, i + 50));
-                if (error) throw error;
-            }
-            setCount(records.length);
-            setStatus('done');
-            onDone();
-        } catch (e) {
-            setErr(e.message || "Erreur lors de l'importation");
-            setStatus('error');
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 modal-box" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="font-display font-bold text-bleu-nuit text-xl">Importer innovation.json</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><Icon name="x" size={20}/></button>
-                </div>
-
-                {status === 'idle' && (
-                    <div className="space-y-4">
-                        <p className="text-sm text-slate-500 leading-relaxed">
-                            Sélectionnez votre fichier <code className="bg-slate-100 px-1.5 py-0.5 rounded font-mono text-xs">innovation.json</code> pour importer toutes les pratiques.
-                            Cette opération <strong>ajoute</strong> les entrées sans effacer les existantes.
-                        </p>
-                        <label className="flex flex-col items-center gap-3 border-2 border-dashed border-slate-200 rounded-xl p-10 cursor-pointer hover:border-bleu-royal/40 hover:bg-glacier/20 transition-all">
-                            <Icon name="upload-cloud" size={32} className="text-slate-300"/>
-                            <span className="text-sm font-bold text-slate-400">Choisir le fichier JSON</span>
-                            <input type="file" accept=".json" onChange={handleFile} className="sr-only"/>
-                        </label>
-                    </div>
-                )}
-                {status === 'loading' && (
-                    <div className="text-center py-10">
-                        <p className="font-display font-bold text-bleu-nuit animate-pulse text-lg">Importation en cours…</p>
-                    </div>
-                )}
-                {status === 'done' && (
-                    <div className="text-center py-6 space-y-2">
-                        <div className="text-5xl font-display font-bold text-bleu-royal">{count}</div>
-                        <p className="text-slate-500 text-sm">pratiques importées avec succès ✓</p>
-                        <button onClick={onClose} className="mt-4 px-6 py-2.5 bg-bleu-royal text-white rounded-xl font-bold text-sm hover:bg-bleu-nuit transition-colors">Fermer</button>
-                    </div>
-                )}
-                {status === 'error' && (
-                    <div className="text-center py-6 space-y-3">
-                        <p className="text-red-500 text-sm font-semibold bg-red-50 px-4 py-3 rounded-xl">{err}</p>
-                        <button onClick={() => setStatus('idle')} className="text-sm font-bold text-bleu-royal underline">Réessayer</button>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-
-// ════════════════════════════════════════════════════════════════════════════
-// MODALE SUGGESTION (visiteurs)
+// MODALE SUGGESTION
 // ════════════════════════════════════════════════════════════════════════════
 function SuggestionModal({ onClose }) {
-    const [form, setForm] = useState({ pratique: '', site: '', description: '', niveau: '', theme: '' });
-    const [status, setStatus] = useState('idle'); // idle | loading | done | error
+    const [form, setForm] = useState({ pratique: '', site: '', description: '', theme: '' });
+    const [status, setStatus] = useState('idle');
     const [err, setErr] = useState('');
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -388,16 +204,13 @@ function SuggestionModal({ onClose }) {
                 headers: {
                     'Content-Type': 'application/json',
                     'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                 },
                 body: JSON.stringify(form),
             });
             if (!res.ok) throw new Error(await res.text());
             setStatus('done');
-        } catch(e) {
-            setErr(e.message);
-            setStatus('error');
-        }
+        } catch(e) { setErr(e.message); setStatus('error'); }
     };
 
     const inp = "w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-bleu-royal/30 outline-none text-sm";
@@ -413,7 +226,6 @@ function SuggestionModal({ onClose }) {
                     </div>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><Icon name="x" size={20}/></button>
                 </div>
-
                 {status === 'done' ? (
                     <div className="flex flex-col items-center justify-center py-16 px-7 gap-4">
                         <div className="text-5xl">🎉</div>
@@ -426,41 +238,27 @@ function SuggestionModal({ onClose }) {
                         <div className="overflow-y-auto px-7 py-6 space-y-4 flex-1">
                             <div>
                                 <label className={lbl}>Nom de la pratique <span className="text-corail">*</span></label>
-                                <input value={form.pratique} onChange={e => set('pratique', e.target.value)}
-                                    className={inp} placeholder="Ex : Atelier de zoothérapie"/>
+                                <input value={form.pratique} onChange={e => set('pratique', e.target.value)} className={inp} placeholder="Ex : Atelier de zoothérapie"/>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className={lbl}>Site / CSSS</label>
-                                    <input value={form.site} onChange={e => set('site', e.target.value)}
-                                        className={inp} placeholder="Ex : CISSS du BSL"/>
+                                    <label className={lbl}>Site</label>
+                                    <input value={form.site} onChange={e => set('site', e.target.value)} className={inp} placeholder="Ex : 01-BSL"/>
                                 </div>
                                 <div>
-                                    <label className={lbl}>Niveau</label>
-                                    <select value={form.niveau} onChange={e => set('niveau', e.target.value)} className={inp}>
-                                        <option value="">— Choisir —</option>
-                                        {['Opérationnel', 'Tactique', 'Stratégique'].map(n => <option key={n}>{n}</option>)}
-                                    </select>
+                                    <label className={lbl}>Thème</label>
+                                    <input value={form.theme} onChange={e => set('theme', e.target.value)} className={inp} placeholder="Ex : Pair-aidance"/>
                                 </div>
-                            </div>
-                            <div>
-                                <label className={lbl}>Thème</label>
-                                <input value={form.theme} onChange={e => set('theme', e.target.value)}
-                                    className={inp} placeholder="Ex : Pair-aidance"/>
                             </div>
                             <div>
                                 <label className={lbl}>Description</label>
                                 <textarea value={form.description} onChange={e => set('description', e.target.value)}
                                     rows={4} className={`${inp} resize-y`} placeholder="Décrivez la pratique en quelques lignes…"/>
                             </div>
-                            {status === 'error' && (
-                                <p className="text-red-500 text-xs font-semibold bg-red-50 px-3 py-2 rounded-lg">{err}</p>
-                            )}
+                            {status === 'error' && <p className="text-red-500 text-xs font-semibold bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
                         </div>
                         <div className="flex justify-end gap-3 px-7 py-5 border-t border-slate-100">
-                            <button onClick={onClose} className="px-5 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:border-slate-300 transition-colors">
-                                Annuler
-                            </button>
+                            <button onClick={onClose} className="px-5 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 hover:border-slate-300 transition-colors">Annuler</button>
                             <button onClick={handleSubmit} disabled={status === 'loading' || !form.pratique.trim()}
                                 className="px-5 py-2 rounded-xl bg-corail text-white text-sm font-bold hover:opacity-90 transition-opacity disabled:opacity-40">
                                 {status === 'loading' ? 'Envoi…' : 'Soumettre'}
@@ -476,36 +274,28 @@ function SuggestionModal({ onClose }) {
 // ════════════════════════════════════════════════════════════════════════════
 // PANNEAU SUGGESTIONS (admin)
 // ════════════════════════════════════════════════════════════════════════════
-function SuggestionsPanel({ onClose, onApprove }) {
+function SuggestionsPanel({ onClose }) {
     const [suggestions, setSuggestions] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const loadSuggestions = async () => {
+    const load = async () => {
         setLoading(true);
-        const { data } = await sb.from('suggestions')
-            .select('*')
-            .eq('statut', 'en_attente')
-            .order('created_at', { ascending: false });
+        const { data } = await sb.from('suggestions').select('*').eq('statut', 'en_attente').order('created_at', { ascending: false });
         setSuggestions(data || []);
         setLoading(false);
     };
 
-    useEffect(() => { loadSuggestions(); }, []);
-
-    const handleApprove = async (s) => {
-        await sb.from('suggestions').update({ statut: 'approuvée' }).eq('id', s.id);
-        await sb.from('pratiques').insert({
-            pratique: s.pratique, site: s.site || '', csss: s.site || '',
-            description: s.description || '', niveau: s.niveau || '',
-            theme: s.theme || '', statut: 'Implanté',
-        });
-        onApprove();
-        loadSuggestions();
-    };
+    useEffect(() => { load(); }, []);
 
     const handleReject = async (id) => {
         await sb.from('suggestions').update({ statut: 'rejetée' }).eq('id', id);
-        loadSuggestions();
+        load();
+    };
+
+    // Approve = mark as approved (admin will manually add to TSV)
+    const handleApprove = async (id) => {
+        await sb.from('suggestions').update({ statut: 'approuvée' }).eq('id', id);
+        load();
     };
 
     return (
@@ -515,7 +305,6 @@ function SuggestionsPanel({ onClose, onApprove }) {
                     <h2 className="font-display font-bold text-bleu-nuit text-lg">Suggestions en attente</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><Icon name="x" size={20}/></button>
                 </div>
-
                 <div className="overflow-y-auto flex-1 px-7 py-6">
                     {loading && <p className="text-center text-slate-400 py-10 animate-pulse">Chargement…</p>}
                     {!loading && suggestions.length === 0 && (
@@ -533,21 +322,20 @@ function SuggestionsPanel({ onClose, onApprove }) {
                                         <p className="text-xs text-slate-400 mt-0.5">
                                             {new Date(s.created_at).toLocaleDateString('fr-CA', { day: 'numeric', month: 'long', year: 'numeric' })}
                                             {s.site && ` · ${s.site}`}
-                                            {s.niveau && ` · ${s.niveau}`}
+                                            {s.theme && ` · ${s.theme}`}
                                         </p>
                                     </div>
                                     <div className="flex gap-2 shrink-0">
                                         <button onClick={() => handleReject(s.id)}
-                                            className="px-3 py-1.5 rounded-lg border border-red-200 text-red-400 text-xs font-bold hover:border-red-400 hover:text-red-500 transition-colors">
+                                            className="px-3 py-1.5 rounded-lg border border-red-200 text-red-400 text-xs font-bold hover:border-red-400 transition-colors">
                                             Rejeter
                                         </button>
-                                        <button onClick={() => handleApprove(s)}
+                                        <button onClick={() => handleApprove(s.id)}
                                             className="px-3 py-1.5 rounded-lg bg-bleu-royal text-white text-xs font-bold hover:bg-bleu-nuit transition-colors">
-                                            Approuver
+                                            Approuver ✓
                                         </button>
                                     </div>
                                 </div>
-                                {s.theme && <p className="text-xs text-slate-500 italic">Thème : {s.theme}</p>}
                                 {s.description && <p className="text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-3">{s.description}</p>}
                             </div>
                         ))}
@@ -559,38 +347,78 @@ function SuggestionsPanel({ onClose, onApprove }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
+// LIGNE DÉTAIL (description + liens)
+// ════════════════════════════════════════════════════════════════════════════
+function DetailRow({ item, colSpan }) {
+    const links = [
+        { key: 'doc',      label: 'Document',  icon: 'file-text' },
+        { key: 'affiche',  label: 'Affiche',   icon: 'image' },
+        { key: 'recherche',label: 'Recherche', icon: 'book-open' },
+        { key: 'guide',    label: 'Guide AIRE', icon: 'compass' },
+    ].filter(l => item[l.key]);
+
+    return (
+        <tr className="expanded-row">
+            <td colSpan={colSpan} className="px-8 pb-6 pt-0">
+                <div className="bg-glacier/30 rounded-2xl p-6 border border-glacier space-y-4">
+                    {item.description && (
+                        <p className="text-sm text-slate-700 leading-relaxed">{item.description}</p>
+                    )}
+                    {links.length > 0 && (
+                        <div className="flex flex-wrap gap-3 pt-2 border-t border-glacier">
+                            {links.map(l => (
+                                <a key={l.key} href={item[l.key]} target="_blank" rel="noopener noreferrer"
+                                    className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-bleu-royal hover:bg-bleu-royal hover:text-white hover:border-bleu-royal transition-all shadow-sm">
+                                    <Icon name={l.icon} size={13}/>
+                                    {l.label}
+                                </a>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </td>
+        </tr>
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 // APPLICATION PRINCIPALE
 // ════════════════════════════════════════════════════════════════════════════
 function App() {
-    const [allData, setAllData]   = useState([]);
-    const [loading, setLoading]   = useState(true);
+    const [allData, setAllData]     = useState([]);
+    const [sitesMap, setSitesMap]   = useState({});
+    const [likesMap, setLikesMap]   = useState({});
+    const [loading, setLoading]     = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSiteDropdownOpen, setIsSiteDropdownOpen] = useState(false);
     const siteDropdownRef = useRef(null);
 
     const [activeFilters, setActiveFilters] = useState({
-        statut: new Set(), niveau: new Set(), site: new Set(), innovation: new Set(),
+        site: new Set(), innovation: new Set(),
     });
-    const [sortConfig, setSortConfig]     = useState({ key: 'pratique', direction: 'asc' });
-    const [expandedRows, setExpandedRows] = useState(new Set());
+    const [sortConfig, setSortConfig]       = useState({ key: 'pratique', direction: 'asc' });
+    const [expandedRows, setExpandedRows]   = useState(new Set());
 
-    const [user, setUser]             = useState(null);
-    const [showLogin, setShowLogin]   = useState(false);
-    const [showImport, setShowImport] = useState(false);
-    const [editingItem, setEditingItem] = useState(null);
-    const [showSuggest, setShowSuggest] = useState(false);
+    const [user, setUser]                   = useState(null);
+    const [showLogin, setShowLogin]         = useState(false);
+    const [showSuggest, setShowSuggest]     = useState(false);
     const [showSuggestions, setShowSuggestions] = useState(false);
+
+    const [likedIds, setLikedIds] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem('aire_liked') || '[]')); }
+        catch { return new Set(); }
+    });
 
     useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
 
+    // Auth
     useEffect(() => {
         sb.auth.getSession().then(({ data }) => setUser(data.session?.user || null));
-        const { data: { subscription } } = sb.auth.onAuthStateChange((_, session) => {
-            setUser(session?.user || null);
-        });
+        const { data: { subscription } } = sb.auth.onAuthStateChange((_, session) => setUser(session?.user || null));
         return () => subscription.unsubscribe();
     }, []);
 
+    // Click outside dropdown
     useEffect(() => {
         const handler = (e) => {
             if (siteDropdownRef.current && !siteDropdownRef.current.contains(e.target))
@@ -600,100 +428,82 @@ function App() {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
+    // Chargement des données
     const loadData = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(
-                SUPABASE_URL + '/rest/v1/pratiques?select=*&order=pratique.asc',
-                { headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                }}
-            );
-            const data = await res.json();
-            console.log('Supabase response:', res.status, data);
-            setAllData(Array.isArray(data) ? data : []);
-        } catch(e) {
-            console.error('Erreur chargement:', e);
-        }
+            // 1. TSV (pratiques)
+            const tsvRes  = await fetch(TSV_FILE);
+            const tsvText = await tsvRes.text();
+            const rows    = parseTSV(tsvText);
+            setAllData(rows);
+
+            // 2. Sites (Supabase)
+            const sitesRes  = await sbFetch('sites?select=*');
+            const sitesData = await sitesRes.json();
+            const map = {};
+            (sitesData || []).forEach(s => map[s.site] = s);
+            setSitesMap(map);
+
+            // 3. Likes (Supabase)
+            const likesRes  = await sbFetch('likes?select=*');
+            const likesData = await likesRes.json();
+            const lmap = {};
+            (likesData || []).forEach(l => lmap[l.pratique_key] = l.count);
+            setLikesMap(lmap);
+        } catch(e) { console.error('Erreur chargement:', e); }
         setLoading(false);
     }, []);
 
     useEffect(() => { loadData(); }, [loadData]);
 
-    const handleSave = async (form) => {
-        const { id, created_at, updated_at, ...payload } = form;
-        if (id) {
-            await sb.from('pratiques').update(payload).eq('id', id);
-        } else {
-            await sb.from('pratiques').insert(payload);
-        }
-        await loadData();
-    };
-
-    const handleDelete = async (id) => {
-        await sb.from('pratiques').delete().eq('id', id);
-        setEditingItem(null);
-        await loadData();
-    };
-
-    // Likes déjà donnés, stockés dans sessionStorage (reset à la fermeture du navigateur)
-    const [likedIds, setLikedIds] = useState(() => {
-        try { return new Set(JSON.parse(localStorage.getItem('aire_liked') || '[]')); }
-        catch { return new Set(); }
-    });
-
-    const handleLike = async (item) => {
-        if (likedIds.has(item.id)) return; // déjà aimé
-        const newLikes = (item.likes || 0) + 1;
+    // Like
+    const handleLike = async (pratique) => {
+        const key = pratique.trim();
+        if (likedIds.has(key)) return;
         const newLikedIds = new Set(likedIds);
-        newLikedIds.add(item.id);
+        newLikedIds.add(key);
         setLikedIds(newLikedIds);
         localStorage.setItem('aire_liked', JSON.stringify(Array.from(newLikedIds)));
-        // Optimistic update
-        setAllData(prev => prev.map(d => d.id === item.id ? { ...d, likes: newLikes } : d));
-        await fetch(
-            SUPABASE_URL + '/rest/v1/pratiques?id=eq.' + item.id,
-            {
-                method: 'PATCH',
-                headers: {
-                    'apikey': SUPABASE_ANON_KEY,
-                    'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=minimal',
-                },
-                body: JSON.stringify({ likes: newLikes }),
-            }
-        );
+        const newCount = (likesMap[key] || 0) + 1;
+        setLikesMap(prev => ({ ...prev, [key]: newCount }));
+        await sbFetch('likes', {
+            method: 'POST',
+            headers: { 'Prefer': 'resolution=merge-duplicates' },
+            body: JSON.stringify({ pratique_key: key, count: newCount }),
+        });
     };
+
+    // Filtres
+    const allSites = useMemo(() =>
+        Array.from(new Set(allData.map(d => d.site))).filter(Boolean).sort(),
+    [allData]);
 
     const filteredData = useMemo(() => {
         return allData.filter(item => {
             const q = searchQuery.toLowerCase();
-            const matchesSearch = !q || [item.pratique, item.theme, item.description, item.csss, item.statut, item.site_long]
-                .some(v => (v || '').toLowerCase().includes(q));
-            const matchesStaticFilters = ['statut', 'niveau'].every(key =>
-                activeFilters[key].size === 0 || activeFilters[key].has(item[key])
-            );
-            const matchesSite = activeFilters.site.size === 0 || activeFilters.site.has(item.csss);
+            const siteInfo = sitesMap[item.site] || {};
+            const matchesSearch = !q || [item.pratique, item.theme, item.description, item.site,
+                siteInfo.nouveau_nom, siteInfo.site_long].some(v => (v || '').toLowerCase().includes(q));
+            const matchesSite = activeFilters.site.size === 0 || activeFilters.site.has(item.site);
             const matchesInnovation = activeFilters.innovation.size === 0 ||
                 Array.from(activeFilters.innovation).every(label => {
                     const field = BOOL_FIELDS.find(f => f.label === label);
                     return field ? item[field.key] === true : false;
                 });
-            return matchesSearch && matchesStaticFilters && matchesSite && matchesInnovation;
+            return matchesSearch && matchesSite && matchesInnovation;
         }).sort((a, b) => {
-            const key = sortConfig.key === 'site' ? 'csss' : sortConfig.key;
-            if (key === 'likes') {
-                return (b.likes || 0) - (a.likes || 0);
+            if (sortConfig.key === 'likes') return (likesMap[b.pratique] || 0) - (likesMap[a.pratique] || 0);
+            if (sortConfig.key === 'site') {
+                const aN = (sitesMap[a.site]?.nouveau_nom || a.site).toLowerCase();
+                const bN = (sitesMap[b.site]?.nouveau_nom || b.site).toLowerCase();
+                return sortConfig.direction === 'asc' ? aN.localeCompare(bN) : bN.localeCompare(aN);
             }
-            const aV = String(a[key] || '').toLowerCase();
-            const bV = String(b[key] || '').toLowerCase();
-            if (aV < bV) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (aV > bV) return sortConfig.direction === 'asc' ? 1 : -1;
-            return 0;
+            const aV = String(a[sortConfig.key] || '').toLowerCase();
+            const bV = String(b[sortConfig.key] || '').toLowerCase();
+            return sortConfig.direction === 'asc' ? aV.localeCompare(bV) : bV.localeCompare(aV);
         });
-    }, [allData, searchQuery, activeFilters, sortConfig]);
+    }, [allData, searchQuery, activeFilters, sortConfig, sitesMap, likesMap]);
 
     const toggleFilter = (key, value) => {
         setActiveFilters(prev => {
@@ -703,25 +513,21 @@ function App() {
         });
     };
 
-    const toggleRow = (id) => {
+    const toggleRow = (pratique) => {
         setExpandedRows(prev => {
             const next = new Set(prev);
-            if (next.has(id)) next.delete(id); else next.add(id);
+            if (next.has(pratique)) next.delete(pratique); else next.add(pratique);
             return next;
         });
     };
 
-    const getBubbleClass = (filterKey, value) => {
-        const isActive = activeFilters[filterKey].has(value);
-        return `px-3 py-1 text-[0.7rem] font-bold rounded-full border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
-            isActive ? 'bg-bleu-royal border-bleu-royal text-white shadow-md' : 'bg-slate-100 border-slate-200 text-slate-600 hover:border-bleu-royal/30'}`;
-    };
-
-    const getInnovBubbleClass = (label, color) => {
+    const getTagClass = (label, color) => {
         const isActive = activeFilters.innovation.has(label);
-        return `px-2.5 py-1 text-[0.72rem] font-bold rounded-lg border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
+        return `px-2 py-0.5 text-[0.7rem] font-bold rounded-lg border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
             isActive ? 'bg-bleu-royal border-bleu-royal text-white shadow-md' : color}`;
     };
+
+    const colSpan = 5;
 
     if (loading) return (
         <div className="h-screen flex items-center justify-center font-display font-bold text-bleu-nuit animate-pulse uppercase tracking-widest text-lg">
@@ -731,12 +537,9 @@ function App() {
 
     return (
         <div className="min-h-screen flex flex-col">
-
             {showLogin      && <LoginModal       onClose={() => setShowLogin(false)} />}
             {showSuggest    && <SuggestionModal  onClose={() => setShowSuggest(false)} />}
-            {showSuggestions && <SuggestionsPanel onClose={() => setShowSuggestions(false)} onApprove={loadData} />}
-            {showImport  && <ImportModal onClose={() => setShowImport(false)} onDone={loadData} />}
-            {editingItem && <EditModal   item={editingItem} onClose={() => setEditingItem(null)} onSave={handleSave} onDelete={handleDelete} />}
+            {showSuggestions && <SuggestionsPanel onClose={() => setShowSuggestions(false)} />}
 
             {/* En-tête */}
             <header className="bg-bleu-nuit h-20 sticky top-0 z-50 flex items-center px-6 lg:px-12 shadow-xl border-b border-white/10">
@@ -749,21 +552,9 @@ function App() {
                 <div className="flex items-center gap-2 ml-4 shrink-0">
                     {user ? (
                         <>
-                            <button onClick={() => setEditingItem(emptyRecord())}
-                                className="flex items-center gap-2 px-4 py-2 bg-corail text-white text-xs font-bold rounded-xl hover:opacity-90 transition-opacity">
-                                <Icon name="plus" size={14}/> Nouvelle pratique
-                            </button>
-                            <button onClick={() => setShowImport(true)}
-                                className="flex items-center gap-2 px-3 py-2 bg-white/10 text-white/70 text-xs font-bold rounded-xl hover:bg-white/20 transition-all border border-white/20">
-                                <Icon name="upload" size={14}/> Importer JSON
-                            </button>
                             <button onClick={() => setShowSuggestions(true)}
                                 className="flex items-center gap-2 px-3 py-2 bg-corail/20 text-corail text-xs font-bold rounded-xl hover:bg-corail/30 transition-all border border-corail/30">
                                 <Icon name="inbox" size={14}/> Suggestions
-                            </button>
-                            <button onClick={() => setShowSuggest(true)}
-                                className="flex items-center gap-2 px-3 py-2 bg-white/10 text-white/70 text-xs font-bold rounded-xl hover:bg-white/20 transition-all border border-white/20">
-                                <Icon name="lightbulb" size={14}/> Suggérer
                             </button>
                             <button onClick={() => sb.auth.signOut()} title="Se déconnecter"
                                 className="p-2 text-white/30 hover:text-white/70 transition-colors rounded-lg">
@@ -785,39 +576,48 @@ function App() {
                 </div>
             </header>
 
-            {/* Hero */}
-            <div className="bg-bleu-royal pt-10 pb-12 px-6 lg:px-12 border-b border-white/5">
+            {/* Hero / Recherche */}
+            <div className="bg-bleu-royal pt-10 pb-12 px-6 lg:px-12">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-6">
                     <div className="flex-1 w-full relative group">
-                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-bleu-royal group-focus-within:text-bleu-nuit transition-colors pointer-events-none">
+                        <div className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
                             <Icon name="search" size={22}/>
                         </div>
                         <input type="text"
                             placeholder="Rechercher une pratique, un site, un mot-clé…"
-                            className="w-full pl-14 pr-6 py-4 bg-white rounded-2xl shadow-2xl border-0 focus:ring-4 focus:ring-white/30 text-lg outline-none transition-all placeholder-slate-400 font-medium text-slate-800"
+                            className="w-full pl-14 pr-6 py-4 bg-white rounded-2xl shadow-2xl border-0 focus:ring-4 focus:ring-white/30 text-lg outline-none placeholder-slate-400 font-medium text-slate-800"
                             value={searchQuery} onChange={e => setSearchQuery(e.target.value)}/>
                     </div>
                     <div className="w-full md:w-80 relative" ref={siteDropdownRef}>
                         <button onClick={() => setIsSiteDropdownOpen(!isSiteDropdownOpen)}
-                            className="w-full flex items-center justify-between px-6 py-4 bg-white/10 border border-white/20 rounded-2xl text-white text-base font-bold hover:bg-white/20 transition-all shadow-xl backdrop-blur-sm">
-                            <span className="truncate">
-                                {activeFilters.site.size === 0 ? 'Tous les sites' : `${activeFilters.site.size} site(s) sélectionné(s)`}
+                            className="w-full flex items-center justify-between px-6 py-4 bg-white/10 border border-white/20 rounded-2xl text-white font-bold hover:bg-white/20 transition-all shadow-xl">
+                            <span className="truncate text-base">
+                                {activeFilters.site.size === 0 ? 'Tous les sites' : `${activeFilters.site.size} site(s)`}
                             </span>
                             <Icon name={isSiteDropdownOpen ? 'chevron-up' : 'chevron-down'} size={20}/>
                         </button>
                         {isSiteDropdownOpen && (
                             <div className="absolute z-50 mt-2 w-full bg-white rounded-2xl shadow-2xl border border-slate-200 p-2 custom-dropdown-scroll">
-                                {Array.from(new Set(allData.map(d => d.csss))).filter(Boolean).sort().map(v => (
-                                    <label key={v} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer group transition-colors">
-                                        <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-bleu-royal focus:ring-bleu-royal"
-                                            checked={activeFilters.site.has(v)} onChange={() => toggleFilter('site', v)}/>
-                                        <span className="text-[0.75rem] font-bold text-slate-700 group-hover:text-bleu-royal">{v}</span>
-                                    </label>
-                                ))}
+                                {allSites.map(siteCode => {
+                                    const info = sitesMap[siteCode];
+                                    return (
+                                        <label key={siteCode} className="flex items-center gap-3 px-3 py-2 hover:bg-slate-50 rounded-lg cursor-pointer group transition-colors">
+                                            <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-bleu-royal"
+                                                checked={activeFilters.site.has(siteCode)}
+                                                onChange={() => toggleFilter('site', siteCode)}/>
+                                            <div>
+                                                <span className="text-[0.75rem] font-bold text-slate-700 group-hover:text-bleu-royal block">
+                                                    {info ? info.nouveau_nom : siteCode}
+                                                </span>
+                                                <span className="text-[0.65rem] text-slate-400">{siteCode}</span>
+                                            </div>
+                                        </label>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
-                    <button onClick={() => { setSearchQuery(''); setActiveFilters({ statut: new Set(), niveau: new Set(), site: new Set(), innovation: new Set() }); }}
+                    <button onClick={() => { setSearchQuery(''); setActiveFilters({ site: new Set(), innovation: new Set() }); }}
                         className="text-white/50 hover:text-corail transition-colors uppercase font-bold text-xs border-b border-white/10 hover:border-corail pb-1 whitespace-nowrap">
                         Réinitialiser
                     </button>
@@ -825,7 +625,6 @@ function App() {
             </div>
 
             <main className="flex-1 max-w-[1600px] mx-auto w-full px-6 lg:px-12 py-10">
-
                 <div className="flex items-center justify-between mb-6 px-2">
                     <div className="text-sm font-medium text-slate-500">
                         <span className="text-bleu-royal font-bold text-lg mr-2">{filteredData.length}</span>résultat{filteredData.length !== 1 ? 's' : ''}
@@ -835,97 +634,84 @@ function App() {
                         <select className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-glacier/30 cursor-pointer shadow-sm"
                             value={sortConfig.key} onChange={e => setSortConfig({ key: e.target.value, direction: 'asc' })}>
                             <option value="pratique">Nom de la pratique</option>
-                            <option value="site">Site (CSSS)</option>
-                            <option value="niveau">Niveau</option>
-                            <option value="statut">Statut</option>
-                            <option value="theme">Thématique</option>
-                            <option value="likes">J'aime</option>
+                            <option value="site">Site</option>
+                            <option value="theme">Thème</option>
+                            <option value="likes">J'aime ❤️</option>
                         </select>
                     </div>
                 </div>
 
                 <div className="bg-white rounded-[2rem] shadow-2xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[1100px]">
+                        <table className="w-full text-left border-collapse min-w-[900px]">
                             <thead>
                                 <tr className="bg-slate-50/80 border-b border-slate-200">
-                                    {user && <th className="px-4 py-5 w-[3%]"></th>}
-                                    <th className="px-8 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[16%]">Pratique</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[14%] text-center">Site</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[9%] text-center">Niveau</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[9%] text-center">Statut</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[9%] text-center">Thème</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[20%]">Description</th>
-                                    <th className="px-8 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[20%] text-center">Innovation</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[6%] text-center">J'aime</th>
+                                    <th className="px-8 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[24%]">Pratique</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[20%]">Site</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[10%]">Thème</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[36%] text-center">Mots-clés</th>
+                                    <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[5%] text-center">❤️</th>
+                                    <th className="px-4 py-5 w-[5%]"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredData.length === 0 && (
-                                    <tr>
-                                        <td colSpan={user ? 9 : 8} className="text-center py-20 text-slate-400 text-sm font-medium">
-                                            Aucun résultat pour cette recherche.
-                                        </td>
-                                    </tr>
+                                    <tr><td colSpan={6} className="text-center py-20 text-slate-400 text-sm">Aucun résultat.</td></tr>
                                 )}
-                                {filteredData.map(item => (
-                                    <tr key={item.id} className="hover:bg-slate-50/40 transition-colors group">
-                                        {user && (
-                                            <td className="px-4 py-7 align-top">
-                                                <button onClick={() => setEditingItem(item)}
-                                                    className="p-1.5 rounded-lg text-slate-300 hover:text-bleu-royal hover:bg-bleu-royal/10 transition-all opacity-0 group-hover:opacity-100">
-                                                    <Icon name="pencil" size={14}/>
-                                                </button>
-                                            </td>
-                                        )}
-                                        <td className="px-8 py-7 align-top">
-                                            <span className="text-[0.9rem] font-bold text-slate-900 leading-snug block group-hover:text-bleu-royal transition-colors">
-                                                {item.pratique}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-7 align-top text-center text-[0.82rem] text-slate-600">{item.csss}</td>
-                                        <td className="px-6 py-7 align-top text-center">
-                                            {item.niveau && <button onClick={() => toggleFilter('niveau', item.niveau)} className={getBubbleClass('niveau', item.niveau)}>{item.niveau}</button>}
-                                        </td>
-                                        <td className="px-6 py-7 align-top text-center">
-                                            {item.statut && <button onClick={() => toggleFilter('statut', item.statut)} className={getBubbleClass('statut', item.statut)}>{item.statut}</button>}
-                                        </td>
-                                        <td className="px-6 py-7 align-top text-center text-[0.82rem] text-slate-600 italic">{item.theme}</td>
-                                        <td className="px-6 py-7 align-top">
-                                            <p className={`text-[0.82rem] text-slate-600 leading-relaxed ${expandedRows.has(item.id) ? '' : 'line-clamp-3'}`}>
-                                                {item.description}
-                                            </p>
-                                            {(item.description || '').length > 100 && (
-                                                <button onClick={() => toggleRow(item.id)} className="mt-2 text-[0.65rem] font-bold text-bleu-royal hover:underline uppercase">
-                                                    {expandedRows.has(item.id) ? 'Moins ▲' : 'Lire plus ▼'}
-                                                </button>
-                                            )}
-                                        </td>
-                                        <td className="px-8 py-7 align-top text-center">
-                                            <div className="flex flex-wrap justify-center gap-1.5">
-                                                {BOOL_FIELDS.map(({ key, label, color }) =>
-                                                    item[key] && (
-                                                        <button key={key} onClick={() => toggleFilter('innovation', label)}
-                                                            className={getInnovBubbleClass(label, color)}>
-                                                            {label}
+                                {filteredData.map(item => {
+                                    const siteInfo   = sitesMap[item.site] || {};
+                                    const isExpanded = expandedRows.has(item.pratique);
+                                    const likeCount  = likesMap[item.pratique] || 0;
+                                    const isLiked    = likedIds.has(item.pratique);
+                                    const hasDetails = item.description || item.doc || item.affiche || item.recherche || item.guide;
+
+                                    return (
+                                        <>
+                                            <tr key={item.pratique} className="hover:bg-slate-50/40 transition-colors group">
+                                                <td className="px-8 py-5 align-top">
+                                                    <span className="text-[0.9rem] font-bold text-slate-900 leading-snug block group-hover:text-bleu-royal transition-colors">
+                                                        {item.pratique}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-5 align-top">
+                                                    <span className="text-[0.82rem] font-semibold text-slate-700 block">{siteInfo.nouveau_nom || item.site}</span>
+                                                    <span className="text-[0.7rem] text-slate-400">{item.site}</span>
+                                                </td>
+                                                <td className="px-6 py-5 align-top text-[0.82rem] text-slate-600 italic">{item.theme}</td>
+                                                <td className="px-6 py-5 align-top">
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {BOOL_FIELDS.map(({ key, label, color }) =>
+                                                            item[key] && (
+                                                                <button key={key} onClick={() => toggleFilter('innovation', label)}
+                                                                    className={getTagClass(label, color)}>
+                                                                    {label}
+                                                                </button>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-5 align-top text-center">
+                                                    <button onClick={() => handleLike(item.pratique)} disabled={isLiked}
+                                                        className={`flex flex-col items-center gap-0.5 mx-auto transition-all ${isLiked ? 'cursor-default opacity-80' : 'hover:scale-110 active:scale-95'}`}>
+                                                        <span className="text-lg">{isLiked ? '❤️' : '🤍'}</span>
+                                                        <span className={`text-xs font-bold ${isLiked ? 'text-corail' : 'text-slate-400'}`}>{likeCount}</span>
+                                                    </button>
+                                                </td>
+                                                <td className="px-4 py-5 align-top text-center">
+                                                    {hasDetails && (
+                                                        <button onClick={() => toggleRow(item.pratique)}
+                                                            className={`p-1.5 rounded-lg transition-all text-slate-400 hover:text-bleu-royal hover:bg-bleu-royal/10 ${isExpanded ? 'bg-bleu-royal/10 text-bleu-royal' : ''}`}>
+                                                            <Icon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16}/>
                                                         </button>
-                                                    )
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-7 align-top text-center">
-                                            <button onClick={() => handleLike(item)} disabled={likedIds.has(item.id)}
-                                                className={`flex flex-col items-center gap-1 mx-auto transition-all ${likedIds.has(item.id) ? 'cursor-default opacity-70' : 'group/like hover:scale-110 active:scale-95'}`}>
-                                                <span className="text-xl transition-transform">
-                                                    {likedIds.has(item.id) ? '❤️' : '🤍'}
-                                                </span>
-                                                <span className={`text-xs font-bold transition-colors ${likedIds.has(item.id) ? 'text-corail' : 'text-slate-400'}`}>
-                                                    {item.likes || 0}
-                                                </span>
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                                    )}
+                                                </td>
+                                            </tr>
+                                            {isExpanded && hasDetails && (
+                                                <DetailRow key={`${item.pratique}-detail`} item={item} colSpan={6} />
+                                            )}
+                                        </>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>

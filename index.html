@@ -350,30 +350,45 @@ function SuggestionsPanel({ onClose }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// LIGNE DÉTAIL (description + liens)
+// LIGNE DÉTAIL (tags + description + liens)
 // ════════════════════════════════════════════════════════════════════════════
 function DetailRow({ item, colSpan }) {
     const links = [
-        { key: 'doc',      label: 'Document',  icon: 'file-text' },
-        { key: 'affiche',  label: 'Affiche',   icon: 'image' },
-        { key: 'recherche',label: 'Recherche', icon: 'book-open' },
-        { key: 'guide',    label: 'Guide AIRE', icon: 'compass' },
+        { key: 'doc',      label: 'Document'  },
+        { key: 'affiche',  label: 'Affiche'   },
+        { key: 'recherche',label: 'Recherche' },
+        { key: 'guide',    label: 'Guide AIRE'},
     ].filter(l => item[l.key]);
+
+    const activeTags = BOOL_FIELDS.filter(f => item[f.key]);
 
     return (
         <tr className="expanded-row">
             <td colSpan={colSpan} className="px-8 pb-6 pt-0">
                 <div className="bg-glacier/30 rounded-2xl p-6 border border-glacier space-y-4">
-                    {item.description && (
-                        <p className="text-sm text-slate-700 leading-relaxed">{item.description}</p>
+
+                    {activeTags.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                            {activeTags.map(f => (
+                                <span key={f.key}
+                                    style={{ background: f.bg, color: f.text, borderColor: f.bd }}
+                                    className="px-2.5 py-1 text-xs font-bold rounded-lg border">
+                                    {f.label}
+                                </span>
+                            ))}
+                        </div>
                     )}
+
+                    {item.description && (
+                        <p className="text-sm text-slate-700 leading-relaxed border-t border-glacier/60 pt-4">{item.description}</p>
+                    )}
+
                     {links.length > 0 && (
-                        <div className="flex flex-wrap gap-3 pt-2 border-t border-glacier">
+                        <div className="flex flex-wrap gap-3 pt-2 border-t border-glacier/60">
                             {links.map(l => (
                                 <a key={l.key} href={item[l.key]} target="_blank" rel="noopener noreferrer"
-                                    className="flex items-center gap-2 px-4 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-bleu-royal hover:bg-bleu-royal hover:text-white hover:border-bleu-royal transition-all shadow-sm">
-                                    <Icon name={l.icon} size={13}/>
-                                    {l.label}
+                                    className="px-4 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-bleu-royal hover:bg-bleu-royal hover:text-white hover:border-bleu-royal transition-all shadow-sm">
+                                    📎 {l.label}
                                 </a>
                             ))}
                         </div>
@@ -644,20 +659,19 @@ function App() {
 
                 <div className="bg-white rounded-[2rem] shadow-2xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse min-w-[900px]">
+                        <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/80 border-b border-slate-200">
-                                    <th className="px-8 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[24%]">Pratique</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[20%]">Site</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[10%]">Thème</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[36%] text-center">Mots-clés</th>
+                                    <th className="px-8 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[40%]">Pratique</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[35%]">Site</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[15%]">Thème</th>
                                     <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[5%] text-center">❤️</th>
                                     <th className="px-4 py-5 w-[5%]"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredData.length === 0 && (
-                                    <tr><td colSpan={6} className="text-center py-20 text-slate-400 text-sm">Aucun résultat.</td></tr>
+                                    <tr><td colSpan={5} className="text-center py-20 text-slate-400 text-sm">Aucun résultat.</td></tr>
                                 )}
                                 {filteredData.map(item => {
                                     const siteInfo   = sitesMap[item.site] || {};
@@ -683,19 +697,7 @@ function App() {
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-5 align-top text-[0.82rem] text-slate-600 italic">{item.theme}</td>
-                                                <td className="px-6 py-5 align-top">
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {BOOL_FIELDS.map(f =>
-                                                            item[f.key] && (
-                                                                <button key={f.key} onClick={() => toggleFilter('innovation', f.label)}
-                                                                    style={getTagStyle(f)}
-                                                                    className="px-2 py-0.5 text-[0.7rem] font-bold rounded-lg border transition-all cursor-pointer hover:opacity-80 active:scale-95">
-                                                                    {f.label}
-                                                                </button>
-                                                            )
-                                                        )}
-                                                    </div>
-                                                </td>
+
                                                 <td className="px-4 py-5 align-top text-center">
                                                     <button onClick={() => handleLike(item.pratique)} disabled={isLiked}
                                                         className={`flex flex-col items-center gap-0.5 mx-auto transition-all ${isLiked ? 'cursor-default opacity-80' : 'hover:scale-110 active:scale-95'}`}>
@@ -714,7 +716,7 @@ function App() {
                                                 </td>
                                             </tr>
                                             {isExpanded && hasDetails && (
-                                                <DetailRow item={item} colSpan={6} />
+                                                <DetailRow item={item} colSpan={5} />
                                             )}
                                         </React.Fragment>
                                     );

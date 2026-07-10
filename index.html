@@ -659,7 +659,7 @@ function App() {
 
                 <div className="bg-white rounded-[2rem] shadow-2xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
+                        <table className="w-full text-left border-collapse table-fixed">
                             <thead>
                                 <tr className="bg-slate-50/80 border-b border-slate-200">
                                     <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[25%]">Pratique</th>
@@ -686,12 +686,14 @@ function App() {
                                             <tr className="hover:bg-slate-50/40 transition-colors group">
                                                 <td className="px-8 py-5 align-top">
                                                     <button onClick={() => toggleRow(item.pratique)}
-                                                        className="text-left text-[0.9rem] font-bold text-slate-900 leading-snug block group-hover:text-bleu-royal transition-colors hover:text-bleu-royal cursor-pointer">
-                                                        {item.pratique}
+                                                        className="text-left text-[0.9rem] font-bold text-slate-900 leading-snug block group-hover:text-bleu-royal transition-colors hover:text-bleu-royal cursor-pointer w-full">
+                                                        <span className="block overflow-hidden" style={{display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical', overflow:'hidden'}}>
+                                                            {item.pratique}
+                                                        </span>
                                                     </button>
                                                 </td>
                                                 <td className="px-6 py-5 align-top">
-                                                    <span className="text-[0.82rem] font-semibold text-slate-700 leading-snug">
+                                                    <span className="text-[0.82rem] font-semibold text-slate-700 leading-snug block overflow-hidden" style={{display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical', overflow:'hidden'}}>
                                                         {siteInfo.nouveau_nom || item.site}
                                                         {item.site && (
                                                             <span className="text-slate-400 font-normal"> ({item.site})</span>

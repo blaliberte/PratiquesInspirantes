@@ -192,6 +192,75 @@ function LoginModal({ onClose }) {
 // ════════════════════════════════════════════════════════════════════════════
 // MODALE SUGGESTION
 // ════════════════════════════════════════════════════════════════════════════
+const SITES_OPTIONS = [
+    '01-BSL — Santé Québec Bas-Saint-Laurent',
+    '02-SLSJ — Santé Québec Saguenay–Lac-Saint-Jean',
+    '03-CN — Santé Québec Capitale-Nationale',
+    '04-MCQ — Santé Québec Mauricie-et-Centre-du-Québec',
+    '05-EST — Santé Québec Estrie',
+    '06-CCS — Santé Québec Centre-Sud-de-l'Île-de-Montréal',
+    '06-EMTL — Santé Québec Est-de-l'Île-de-Montréal',
+    '06-NIM — Santé Québec Nord-de-l'Île-de-Montréal',
+    '06-OMTL — Santé Québec Ouest-de-l'Île-de-Montréal',
+    '06-COMTL — Santé Québec Centre-Ouest-de-l'Île-de-Montréal',
+    '07-OUT — Santé Québec Outaouais',
+    '08-AT — Santé Québec Abitibi-Témiscamingue',
+    '09-CN — Santé Québec Côte-Nord',
+    '10-BJ — Santé Québec Baie-James',
+    '11-GAS — Santé Québec Gaspésie',
+    '12-CA — Santé Québec Chaudière-Appalaches',
+    '13-Lav — Santé Québec Laval',
+    '14-Lan — Santé Québec Lanaudière',
+    '15-Lau — Santé Québec Laurentides',
+    '16-MC — Santé Québec Montérégie-Centre',
+    '16-ME — Santé Québec Montérégie-Est',
+    '16-MO — Santé Québec Montérégie-Ouest',
+];
+
+const THEMES_OPTIONS = [
+    'Adaptation culturelle','Approche d'intervention','Assignation territoriale',
+    'Budget partenariat','Clinique mobile','Comité des jeunes','Comité des proches',
+    'Dépannage','Déplacement','Entente de services','Espace de concertation',
+    'Groupes et ateliers pour les jeunes','Horaire','Infirmière practicienne spécialisée',
+    'Intervention ludique','LGBTQ+','Liaison partenaire','Local Aire ouverte','Médecin',
+    'Outil de suivi','Pair-aidance','Partenariats clés','Participation des jeunes',
+    'Pratique de démarchage','Prise de rendez-vous','Proches','Promotion des services',
+    'Présence chez les partenaires','Questionnaire d'entrée','Questionnaire de satisfaction',
+    'Réseaux sociaux','Salle commune','Sondage','Soutien clinique','Spécificités du modèle',
+    'Trajectoire','Téléintervention','Unité mobile','Élargir l'âge','Événement',
+];
+
+function SelectAvecAutre({ label, options, value, onChange }) {
+    const [isAutre, setIsAutre] = useState(false);
+    const inp = "w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-bleu-royal/30 outline-none text-sm";
+    const lbl = "text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider block mb-1";
+
+    const handleSelect = (e) => {
+        if (e.target.value === '__autre__') {
+            setIsAutre(true);
+            onChange('');
+        } else {
+            setIsAutre(false);
+            onChange(e.target.value);
+        }
+    };
+
+    return (
+        <div>
+            <label className={lbl}>{label}</label>
+            <select onChange={handleSelect} value={isAutre ? '__autre__' : value} className={inp}>
+                <option value="">— Choisir —</option>
+                {options.map(o => <option key={o} value={o}>{o}</option>)}
+                <option value="__autre__">Autre…</option>
+            </select>
+            {isAutre && (
+                <input autoFocus value={value} onChange={e => onChange(e.target.value)}
+                    className={`${inp} mt-2`} placeholder="Précisez…"/>
+            )}
+        </div>
+    );
+}
+
 function SuggestionModal({ onClose }) {
     const [form, setForm] = useState({ pratique: '', site: '', description: '', theme: '' });
     const [status, setStatus] = useState('idle');
@@ -244,14 +313,8 @@ function SuggestionModal({ onClose }) {
                                 <input value={form.pratique} onChange={e => set('pratique', e.target.value)} className={inp} placeholder="Ex : Atelier de zoothérapie"/>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className={lbl}>Site</label>
-                                    <input value={form.site} onChange={e => set('site', e.target.value)} className={inp} placeholder="Ex : 01-BSL"/>
-                                </div>
-                                <div>
-                                    <label className={lbl}>Thème</label>
-                                    <input value={form.theme} onChange={e => set('theme', e.target.value)} className={inp} placeholder="Ex : Pair-aidance"/>
-                                </div>
+                                <SelectAvecAutre label="Site" options={SITES_OPTIONS} value={form.site} onChange={v => set('site', v)}/>
+                                <SelectAvecAutre label="Thème" options={THEMES_OPTIONS} value={form.theme} onChange={v => set('theme', v)}/>
                             </div>
                             <div>
                                 <label className={lbl}>Description</label>

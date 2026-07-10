@@ -398,7 +398,7 @@ function App() {
     const siteDropdownRef = useRef(null);
 
     const [activeFilters, setActiveFilters] = useState({
-        site: new Set(), innovation: new Set(),
+        site: new Set(), innovation: new Set(), theme: new Set(),
     });
     const [sortConfig, setSortConfig]       = useState({ key: 'pratique', direction: 'asc' });
     const [expandedRows, setExpandedRows]   = useState(new Set());
@@ -460,12 +460,12 @@ function App() {
 
     // Like
     const handleLike = async (rowKey) => {
-        if (likedIds.has(rowKey)) return;
         const newLikedIds = new Set(likedIds);
-        newLikedIds.add(rowKey);
+        const wasLiked = likedIds.has(rowKey);
+        const newCount = Math.max(0, (likesMap[rowKey] || 0) + (wasLiked ? -1 : 1));
+        if (wasLiked) { newLikedIds.delete(rowKey); } else { newLikedIds.add(rowKey); }
         setLikedIds(newLikedIds);
         localStorage.setItem('aire_liked', JSON.stringify(Array.from(newLikedIds)));
-        const newCount = (likesMap[rowKey] || 0) + 1;
         setLikesMap(prev => ({ ...prev, [rowKey]: newCount }));
         await sbFetch('likes', {
             method: 'POST',
@@ -486,12 +486,13 @@ function App() {
             const matchesSearch = !q || [item.pratique, item.theme, item.description, item.site,
                 siteInfo.nouveau_nom, siteInfo.site_long].some(v => (v || '').toLowerCase().includes(q));
             const matchesSite = activeFilters.site.size === 0 || activeFilters.site.has(item.site);
+            const matchesTheme = activeFilters.theme.size === 0 || activeFilters.theme.has(item.theme);
             const matchesInnovation = activeFilters.innovation.size === 0 ||
                 Array.from(activeFilters.innovation).every(label => {
                     const field = BOOL_FIELDS.find(f => f.label === label);
                     return field ? item[field.key] === true : false;
                 });
-            return matchesSearch && matchesSite && matchesInnovation;
+            return matchesSearch && matchesSite && matchesTheme && matchesInnovation;
         }).sort((a, b) => {
             if (sortConfig.key === 'likes') return (likesMap[b.pratique] || 0) - (likesMap[a.pratique] || 0);
             if (sortConfig.key === 'site') {
@@ -618,7 +619,7 @@ function App() {
                             </div>
                         )}
                     </div>
-                    <button onClick={() => { setSearchQuery(''); setActiveFilters({ site: new Set(), innovation: new Set() }); }}
+                    <button onClick={() => { setSearchQuery(''); setActiveFilters({ site: new Set(), innovation: new Set(), theme: new Set() }); }}
                         className="text-white/50 hover:text-corail transition-colors uppercase font-bold text-xs border-b border-white/10 hover:border-corail pb-1 whitespace-nowrap">
                         Réinitialiser
                     </button>
@@ -686,7 +687,17 @@ function App() {
                                                         )}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-5 align-top text-[0.82rem] text-slate-600 italic">{item.theme}</td>
+                                                <td className="px-6 py-5 align-top">
+                                                    {item.theme && (
+                                                        <button onClick={() => toggleFilter('theme', item.theme)}
+                                                            style={activeFilters.theme.has(item.theme)
+                                                                ? { background: '#0F408F', color: '#fff', borderColor: '#0F408F' }
+                                                                : { background: '#f8f3ed', color: '#00255B', borderColor: '#ddd0c4' }}
+                                                            className="px-2.5 py-1 text-[0.75rem] font-semibold italic rounded-lg border transition-all hover:opacity-80 cursor-pointer">
+                                                            {item.theme}
+                                                        </button>
+                                                    )}
+                                                </td>
 
                                                 <td className="px-6 py-5 align-top">
                                                     <div className="flex flex-wrap gap-1.5">
@@ -702,8 +713,8 @@ function App() {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-5 align-top text-center">
-                                                    <button onClick={() => handleLike(rowKey)} disabled={isLiked}
-                                                        className={`flex flex-col items-center gap-0.5 mx-auto transition-all ${isLiked ? 'cursor-default opacity-80' : 'hover:scale-110 active:scale-95'}`}>
+                                                    <button onClick={() => handleLike(rowKey)}
+                                                        className="flex flex-col items-center gap-0.5 mx-auto transition-all hover:scale-110 active:scale-95 cursor-pointer">
                                                         <span className="text-lg">{isLiked ? '❤️' : '🤍'}</span>
                                                         <span className={`text-xs font-bold ${isLiked ? 'text-corail' : 'text-slate-400'}`}>{likeCount}</span>
                                                     </button>

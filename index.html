@@ -663,19 +663,23 @@ function App() {
                                     const isExpanded = expandedRows.has(item.pratique);
                                     const likeCount  = likesMap[item.pratique] || 0;
                                     const isLiked    = likedIds.has(item.pratique);
-                                    const hasDetails = item.description || item.doc || item.affiche || item.recherche || item.guide;
+                                    const hasDetails = !!(item.description || item.doc || item.affiche || item.recherche || item.guide);
 
                                     return (
-                                        <>
-                                            <tr key={item.pratique} className="hover:bg-slate-50/40 transition-colors group">
+                                        <React.Fragment key={item.pratique}>
+                                            <tr className="hover:bg-slate-50/40 transition-colors group">
                                                 <td className="px-8 py-5 align-top">
                                                     <span className="text-[0.9rem] font-bold text-slate-900 leading-snug block group-hover:text-bleu-royal transition-colors">
                                                         {item.pratique}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-5 align-top">
-                                                    <span className="text-[0.82rem] font-semibold text-slate-700 block">{siteInfo.nouveau_nom || item.site}</span>
-                                                    <span className="text-[0.7rem] text-slate-400">{item.site}</span>
+                                                    <span className="text-[0.82rem] font-semibold text-slate-700 leading-snug">
+                                                        {siteInfo.nouveau_nom || item.site}
+                                                        {siteInfo.ancien_nom && (
+                                                            <span className="text-slate-400 font-normal"> ({siteInfo.ancien_nom})</span>
+                                                        )}
+                                                    </span>
                                                 </td>
                                                 <td className="px-6 py-5 align-top text-[0.82rem] text-slate-600 italic">{item.theme}</td>
                                                 <td className="px-6 py-5 align-top">
@@ -707,9 +711,9 @@ function App() {
                                                 </td>
                                             </tr>
                                             {isExpanded && hasDetails && (
-                                                <DetailRow key={`${item.pratique}-detail`} item={item} colSpan={6} />
+                                                <DetailRow item={item} colSpan={6} />
                                             )}
-                                        </>
+                                        </React.Fragment>
                                     );
                                 })}
                             </tbody>

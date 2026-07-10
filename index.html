@@ -662,16 +662,17 @@ function App() {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/80 border-b border-slate-200">
-                                    <th className="px-8 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[14%]">Pratique</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[44%]">Site</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[27%]">Thème</th>
-                                    <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[5%] text-center">❤️</th>
-                                    <th className="px-4 py-5 w-[5%]"></th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[25%]">Pratique</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[15%]">Site</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[15%]">Thème</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[30%]">Type</th>
+                                    <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[8%] text-center">❤️</th>
+                                    <th className="px-4 py-5 w-[7%]"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredData.length === 0 && (
-                                    <tr><td colSpan={5} className="text-center py-20 text-slate-400 text-sm">Aucun résultat.</td></tr>
+                                    <tr><td colSpan={6} className="text-center py-20 text-slate-400 text-sm">Aucun résultat.</td></tr>
                                 )}
                                 {filteredData.map(item => {
                                     const siteInfo   = sitesMap[item.site] || {};
@@ -699,6 +700,19 @@ function App() {
                                                 </td>
                                                 <td className="px-6 py-5 align-top text-[0.82rem] text-slate-600 italic">{item.theme}</td>
 
+                                                <td className="px-6 py-5 align-top">
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {BOOL_FIELDS.map(f =>
+                                                            item[f.key] && (
+                                                                <button key={f.key} onClick={() => toggleFilter('innovation', f.label)}
+                                                                    style={getTagStyle(f)}
+                                                                    className="px-2 py-0.5 text-[0.68rem] font-bold rounded-lg border transition-all cursor-pointer hover:opacity-80">
+                                                                    {f.label}
+                                                                </button>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                </td>
                                                 <td className="px-4 py-5 align-top text-center">
                                                     <button onClick={() => handleLike(item.pratique)} disabled={isLiked}
                                                         className={`flex flex-col items-center gap-0.5 mx-auto transition-all ${isLiked ? 'cursor-default opacity-80' : 'hover:scale-110 active:scale-95'}`}>
@@ -717,7 +731,7 @@ function App() {
                                                 </td>
                                             </tr>
                                             {isExpanded && hasDetails && (
-                                                <DetailRow item={item} colSpan={5} />
+                                                <DetailRow item={item} colSpan={6} />
                                             )}
                                         </React.Fragment>
                                     );

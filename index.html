@@ -662,9 +662,9 @@ function App() {
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-slate-50/80 border-b border-slate-200">
-                                    <th className="px-8 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[40%]">Pratique</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[35%]">Site</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[15%]">Thème</th>
+                                    <th className="px-8 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[28%]">Pratique</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[37%]">Site</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[25%]">Thème</th>
                                     <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[5%] text-center">❤️</th>
                                     <th className="px-4 py-5 w-[5%]"></th>
                                 </tr>
@@ -684,9 +684,10 @@ function App() {
                                         <React.Fragment key={item.pratique}>
                                             <tr className="hover:bg-slate-50/40 transition-colors group">
                                                 <td className="px-8 py-5 align-top">
-                                                    <span className="text-[0.9rem] font-bold text-slate-900 leading-snug block group-hover:text-bleu-royal transition-colors">
+                                                    <button onClick={() => toggleRow(item.pratique)}
+                                                        className="text-left text-[0.9rem] font-bold text-slate-900 leading-snug block group-hover:text-bleu-royal transition-colors hover:text-bleu-royal cursor-pointer">
                                                         {item.pratique}
-                                                    </span>
+                                                    </button>
                                                 </td>
                                                 <td className="px-6 py-5 align-top">
                                                     <span className="text-[0.82rem] font-semibold text-slate-700 leading-snug">

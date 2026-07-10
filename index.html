@@ -77,25 +77,25 @@ const Icon = ({ name, size = 18, className = "" }) => (
 
 // ─── Champs booléens ──────────────────────────────────────────────────────────
 const BOOL_FIELDS = [
-    { key: 'intervention',            label: 'Intervention',            color: 'bg-pink-50 text-pink-600 border-pink-200' },
-    { key: 'technologie_outil',       label: 'Technologie/Outil',       color: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
-    { key: 'participation_proches',   label: 'Participation proches',   color: 'bg-purple-50 text-purple-600 border-purple-200' },
-    { key: 'participation_jeunes',    label: 'Participation jeunes',    color: 'bg-violet-50 text-violet-600 border-violet-200' },
-    { key: 'partenariat',             label: 'Partenariat',             color: 'bg-yellow-50 text-yellow-600 border-yellow-200' },
-    { key: 'promotion_outreach',      label: 'Promotion/Outreach',      color: 'bg-rose-50 text-rose-600 border-rose-200' },
-    { key: 'donnees',                 label: 'Données',                 color: 'bg-teal-50 text-teal-600 border-teal-200' },
-    { key: 'modalite_acces',          label: 'Modalité d\'accès',       color: 'bg-sky-50 text-sky-600 border-sky-200' },
-    { key: 'pair_aidance',            label: 'Pair-aidance',            color: 'bg-orange-50 text-orange-600 border-orange-200' },
-    { key: 'effets_services',         label: 'Effets services',         color: 'bg-lime-50 text-lime-600 border-lime-200' },
-    { key: 'sante_physique',          label: 'Santé physique',          color: 'bg-green-50 text-green-600 border-green-200' },
-    { key: 'accessibilite',           label: 'Accessibilité',           color: 'bg-cyan-50 text-cyan-600 border-cyan-200' },
-    { key: 'besoins',                 label: 'Besoins',                 color: 'bg-blue-50 text-blue-600 border-blue-200' },
-    { key: 'equite',                  label: 'Équité',                  color: 'bg-indigo-50 text-indigo-600 border-indigo-200' },
-    { key: 'soutenir_proches',        label: 'Soutenir proches',        color: 'bg-fuchsia-50 text-fuchsia-600 border-fuchsia-200' },
-    { key: 'pouvoir_agir',            label: 'Pouvoir d\'agir',         color: 'bg-amber-50 text-amber-600 border-amber-200' },
-    { key: 'confiance',               label: 'Confiance',               color: 'bg-red-50 text-red-600 border-red-200' },
-    { key: 'coordination',            label: 'Coordination',            color: 'bg-slate-50 text-slate-600 border-slate-200' },
-    { key: 'adaptation_territoriale', label: 'Adaptation territoriale', color: 'bg-stone-50 text-stone-600 border-stone-200' },
+    { key: 'intervention',            label: 'Intervention',          bg: '#fdf2f8', text: '#db2777', bd: '#f9a8d4' },
+    { key: 'technologie_outil',       label: 'Technologie/Outil',     bg: '#f0fdf4', text: '#16a34a', bd: '#86efac' },
+    { key: 'participation_proches',   label: 'Participation proches', bg: '#faf5ff', text: '#9333ea', bd: '#d8b4fe' },
+    { key: 'participation_jeunes',    label: 'Participation jeunes',  bg: '#f5f3ff', text: '#7c3aed', bd: '#c4b5fd' },
+    { key: 'partenariat',             label: 'Partenariat',           bg: '#fefce8', text: '#ca8a04', bd: '#fde047' },
+    { key: 'promotion_outreach',      label: 'Promotion/Outreach',    bg: '#fff1f2', text: '#e11d48', bd: '#fda4af' },
+    { key: 'donnees',                 label: 'Données',               bg: '#f0fdfa', text: '#0d9488', bd: '#99f6e4' },
+    { key: 'modalite_acces',          label: "Modalité d'accès",      bg: '#f0f9ff', text: '#0284c7', bd: '#7dd3fc' },
+    { key: 'pair_aidance',            label: 'Pair-aidance',          bg: '#fff7ed', text: '#ea580c', bd: '#fdba74' },
+    { key: 'effets_services',         label: 'Effets services',       bg: '#f7fee7', text: '#65a30d', bd: '#bef264' },
+    { key: 'sante_physique',          label: 'Santé physique',        bg: '#f0fdf4', text: '#15803d', bd: '#86efac' },
+    { key: 'accessibilite',           label: 'Accessibilité',         bg: '#ecfeff', text: '#0891b2', bd: '#67e8f9' },
+    { key: 'besoins',                 label: 'Besoins',               bg: '#eff6ff', text: '#2563eb', bd: '#93c5fd' },
+    { key: 'equite',                  label: 'Équité',                bg: '#eef2ff', text: '#4338ca', bd: '#a5b4fc' },
+    { key: 'soutenir_proches',        label: 'Soutenir proches',      bg: '#fdf4ff', text: '#c026d3', bd: '#f0abfc' },
+    { key: 'pouvoir_agir',            label: "Pouvoir d'agir",        bg: '#fffbeb', text: '#d97706', bd: '#fcd34d' },
+    { key: 'confiance',               label: 'Confiance',             bg: '#fef2f2', text: '#dc2626', bd: '#fca5a5' },
+    { key: 'coordination',            label: 'Coordination',          bg: '#f8fafc', text: '#475569', bd: '#cbd5e1' },
+    { key: 'adaptation_territoriale', label: 'Adaptation territ.',    bg: '#fafaf9', text: '#57534e', bd: '#d6d3d1' },
 ];
 
 const NIVEAUX = ['Opérationnel', 'Tactique', 'Stratégique'];
@@ -706,8 +706,9 @@ function App() {
                                                 <td className="px-4 py-5 align-top text-center">
                                                     {hasDetails && (
                                                         <button onClick={() => toggleRow(item.pratique)}
-                                                            className={`p-1.5 rounded-lg transition-all text-slate-400 hover:text-bleu-royal hover:bg-bleu-royal/10 ${isExpanded ? 'bg-bleu-royal/10 text-bleu-royal' : ''}`}>
-                                                            <Icon name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16}/>
+                                                            style={{ color: isExpanded ? '#0F408F' : '#94a3b8', background: isExpanded ? '#e0eaf9' : 'transparent' }}
+                                                            className="p-1.5 rounded-lg transition-all hover:text-bleu-royal text-sm font-bold">
+                                                            {isExpanded ? '▲' : '▼'}
                                                         </button>
                                                     )}
                                                 </td>

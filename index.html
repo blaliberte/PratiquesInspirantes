@@ -473,19 +473,18 @@ function App() {
     useEffect(() => { loadData(); }, [loadData]);
 
     // Like
-    const handleLike = async (pratique) => {
-        const key = pratique.trim();
-        if (likedIds.has(key)) return;
+    const handleLike = async (rowKey) => {
+        if (likedIds.has(rowKey)) return;
         const newLikedIds = new Set(likedIds);
-        newLikedIds.add(key);
+        newLikedIds.add(rowKey);
         setLikedIds(newLikedIds);
         localStorage.setItem('aire_liked', JSON.stringify(Array.from(newLikedIds)));
-        const newCount = (likesMap[key] || 0) + 1;
-        setLikesMap(prev => ({ ...prev, [key]: newCount }));
+        const newCount = (likesMap[rowKey] || 0) + 1;
+        setLikesMap(prev => ({ ...prev, [rowKey]: newCount }));
         await sbFetch('likes', {
             method: 'POST',
             headers: { 'Prefer': 'resolution=merge-duplicates' },
-            body: JSON.stringify({ pratique_key: key, count: newCount }),
+            body: JSON.stringify({ pratique_key: rowKey, count: newCount }),
         });
     };
 
@@ -674,18 +673,19 @@ function App() {
                                 {filteredData.length === 0 && (
                                     <tr><td colSpan={6} className="text-center py-20 text-slate-400 text-sm">Aucun résultat.</td></tr>
                                 )}
-                                {filteredData.map(item => {
+                                {filteredData.map((item, index) => {
                                     const siteInfo   = sitesMap[item.site] || {};
-                                    const isExpanded = expandedRows.has(item.pratique);
-                                    const likeCount  = likesMap[item.pratique] || 0;
-                                    const isLiked    = likedIds.has(item.pratique);
+                                    const rowKey = item.pratique + "|" + item.site;
+                                    const isExpanded = expandedRows.has(rowKey);
+                                    const likeCount  = likesMap[rowKey] || 0;
+                                    const isLiked    = likedIds.has(rowKey);
                                     const hasDetails = !!(item.description || item.doc || item.affiche || item.recherche || item.guide);
 
                                     return (
-                                        <React.Fragment key={item.pratique}>
+                                        <React.Fragment key={index}>
                                             <tr className="hover:bg-slate-50/40 transition-colors group">
                                                 <td className="px-8 py-5 align-top">
-                                                    <button onClick={() => toggleRow(item.pratique)}
+                                                    <button onClick={() => toggleRow(rowKey)}
                                                         className="text-left text-[0.9rem] font-bold text-slate-900 leading-snug block group-hover:text-bleu-royal transition-colors hover:text-bleu-royal cursor-pointer w-full">
                                                         <span className="block overflow-hidden" style={{display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical', overflow:'hidden'}}>
                                                             {item.pratique}
@@ -716,7 +716,7 @@ function App() {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-5 align-top text-center">
-                                                    <button onClick={() => handleLike(item.pratique)} disabled={isLiked}
+                                                    <button onClick={() => handleLike(rowKey)} disabled={isLiked}
                                                         className={`flex flex-col items-center gap-0.5 mx-auto transition-all ${isLiked ? 'cursor-default opacity-80' : 'hover:scale-110 active:scale-95'}`}>
                                                         <span className="text-lg">{isLiked ? '❤️' : '🤍'}</span>
                                                         <span className={`text-xs font-bold ${isLiked ? 'text-corail' : 'text-slate-400'}`}>{likeCount}</span>
@@ -724,7 +724,7 @@ function App() {
                                                 </td>
                                                 <td className="px-4 py-5 align-top text-center">
                                                     {hasDetails && (
-                                                        <button onClick={() => toggleRow(item.pratique)}
+                                                        <button onClick={() => toggleRow(rowKey)}
                                                             style={{ color: isExpanded ? '#0F408F' : '#94a3b8', background: isExpanded ? '#e0eaf9' : 'transparent' }}
                                                             className="p-1.5 rounded-lg transition-all hover:text-bleu-royal text-sm font-bold">
                                                             {isExpanded ? '▲' : '▼'}

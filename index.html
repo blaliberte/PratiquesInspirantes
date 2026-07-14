@@ -338,7 +338,115 @@ function SuggestionModal({ onClose }) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// PANNEAU SUGGESTIONS (admin)
+// PANNEAU ADMIN (suggestions + commentaires)
+// ════════════════════════════════════════════════════════════════════════════
+function SuggestionsPanel({ onClose }) {
+    const [tab, setTab] = useState("suggestions");
+    const [suggestions, setSuggestions] = useState([]);
+    const [comments, setComments] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const loadSuggestions = async () => {
+        const { data } = await sb.from("suggestions").select("*").eq("statut", "en_attente").order("created_at", { ascending: false });
+        setSuggestions(data || []);
+    };
+    const loadComments = async () => {
+        const res = await sbFetch("comments?approved=eq.false&order=created_at.desc&select=*");
+        const data = await res.json();
+        setComments(Array.isArray(data) ? data : []);
+    };
+    const loadAll = async () => {
+        setLoading(true);
+        await Promise.all([loadSuggestions(), loadComments()]);
+        setLoading(false);
+    };
+    useEffect(() => { loadAll(); }, []);
+
+    const handleRejectSuggestion = async (id) => { await sb.from("suggestions").update({ statut: "rejetee" }).eq("id", id); loadSuggestions(); };
+    const handleApproveSuggestion = async (id) => { await sb.from("suggestions").update({ statut: "approuvee" }).eq("id", id); loadSuggestions(); };
+    const handleApproveComment = async (id) => {
+        await sbFetch("comments?id=eq." + id, { method: "PATCH", headers: { "Prefer": "return=minimal" }, body: JSON.stringify({ approved: true, approved_at: new Date().toISOString() }) });
+        loadComments();
+    };
+    const handleDeleteComment = async (id) => {
+        await sbFetch("comments?id=eq." + id, { method: "DELETE" });
+        loadComments();
+    };
+
+    const tabClass = (t) => "px-4 py-2 text-xs font-bold rounded-xl transition-all " + (tab === t ? "bg-bleu-royal text-white" : "text-slate-500 hover:bg-slate-100");
+
+    return (
+        <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-4 modal-overlay" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col modal-box" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between px-7 py-5 border-b border-slate-100">
+                    <div className="flex gap-2">
+                        <button className={tabClass("suggestions")} onClick={() => setTab("suggestions")}>
+                            Suggestions {suggestions.length > 0 && <span className="ml-1 bg-corail text-white rounded-full px-1.5 text-[0.6rem]">{suggestions.length}</span>}
+                        </button>
+                        <button className={tabClass("comments")} onClick={() => setTab("comments")}>
+                            Commentaires {comments.length > 0 && <span className="ml-1 bg-corail text-white rounded-full px-1.5 text-[0.6rem]">{comments.length}</span>}
+                        </button>
+                    </div>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><Icon name="x" size={20}/></button>
+                </div>
+
+                <div className="overflow-y-auto flex-1 px-7 py-6">
+                    {loading && <p className="text-center text-slate-400 py-10 animate-pulse">Chargement...</p>}
+
+                    {!loading && tab === "suggestions" && (
+                        <div className="space-y-4">
+                            {suggestions.length === 0 && <div className="text-center py-16"><p className="text-4xl mb-3">OK</p><p className="text-slate-400 text-sm">Aucune suggestion en attente</p></div>}
+                            {suggestions.map(s => (
+                                <div key={s.id} className="border border-slate-200 rounded-2xl p-5 space-y-3">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <p className="font-bold text-slate-900">{s.pratique}</p>
+                                            <p className="text-xs text-slate-400 mt-0.5">
+                                                {new Date(s.created_at).toLocaleDateString("fr-CA", { day: "numeric", month: "long", year: "numeric" })}
+                                                {s.site && " · " + s.site}{s.theme && " · " + s.theme}
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2 shrink-0">
+                                            <button onClick={() => handleRejectSuggestion(s.id)} className="px-3 py-1.5 rounded-lg border border-red-200 text-red-400 text-xs font-bold hover:border-red-400 transition-colors">Rejeter</button>
+                                            <button onClick={() => handleApproveSuggestion(s.id)} className="px-3 py-1.5 rounded-lg bg-bleu-royal text-white text-xs font-bold hover:bg-bleu-nuit transition-colors">Approuver</button>
+                                        </div>
+                                    </div>
+                                    {s.description && <p className="text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-3">{s.description}</p>}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {!loading && tab === "comments" && (
+                        <div className="space-y-4">
+                            {comments.length === 0 && <div className="text-center py-16"><p className="text-4xl mb-3">OK</p><p className="text-slate-400 text-sm">Aucun commentaire en attente</p></div>}
+                            {comments.map(c => (
+                                <div key={c.id} className="border border-slate-200 rounded-2xl p-5 space-y-3">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <p className="font-bold text-slate-900">{c.author_name}
+                                                {c.author_email && <span className="font-normal text-slate-400 text-xs ml-2">({c.author_email})</span>}
+                                            </p>
+                                            <p className="text-xs text-slate-400 mt-0.5">
+                                                {new Date(c.created_at).toLocaleDateString("fr-CA", { day: "numeric", month: "long", year: "numeric" })}
+                                                <span className="ml-2 font-medium" style={{color:"#0F408F"}}>{(c.practice_key || "").split("|")[0]}</span>
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2 shrink-0">
+                                            <button onClick={() => handleDeleteComment(c.id)} className="px-3 py-1.5 rounded-lg border border-red-200 text-red-400 text-xs font-bold hover:border-red-400 transition-colors">Supprimer</button>
+                                            <button onClick={() => handleApproveComment(c.id)} className="px-3 py-1.5 rounded-lg bg-bleu-royal text-white text-xs font-bold hover:bg-bleu-nuit transition-colors">Approuver</button>
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-slate-600 leading-relaxed border-t border-slate-100 pt-3">{c.comment_text}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
 // ════════════════════════════════════════════════════════════════════════════
 function SuggestionsPanel({ onClose }) {
     const [suggestions, setSuggestions] = useState([]);
@@ -412,10 +520,86 @@ function SuggestionsPanel({ onClose }) {
     );
 }
 
+
+// ════════════════════════════════════════════════════════════════════════════
+// SECTION COMMENTAIRES
+// ════════════════════════════════════════════════════════════════════════════
+function CommentsSection({ rowKey, comments }) {
+    const [form, setForm] = useState({ author_name: "", author_email: "", comment_text: "" });
+    const [status, setStatus] = useState("idle");
+    const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+    const inp = "w-full px-3 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-bleu-royal/30 outline-none text-sm";
+    const lbl = "text-[0.65rem] font-bold text-slate-400 uppercase tracking-wider block mb-1";
+
+    const handleSubmit = async () => {
+        if (!form.author_name.trim() || !form.comment_text.trim()) return;
+        setStatus("loading");
+        const res = await sbFetch("comments", {
+            method: "POST",
+            headers: { "Prefer": "return=minimal" },
+            body: JSON.stringify({ practice_key: rowKey, ...form }),
+        });
+        if (res.ok) { setStatus("done"); setForm({ author_name: "", author_email: "", comment_text: "" }); }
+        else setStatus("error");
+    };
+
+    return (
+        <div className="border-t border-glacier/60 pt-4 space-y-4">
+            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                Commentaires {comments.length > 0 && <span className="text-bleu-royal">({comments.length})</span>}
+            </h4>
+            {comments.length === 0 && <p className="text-xs text-slate-400 italic">Aucun commentaire pour l'instant.</p>}
+            <div className="space-y-3">
+                {comments.map(c => (
+                    <div key={c.id} className="bg-white rounded-xl p-4 border border-slate-100">
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-bleu-nuit">{c.author_name}</span>
+                            <span className="text-[0.65rem] text-slate-400">
+                                {new Date(c.created_at).toLocaleDateString("fr-CA", { day: "numeric", month: "long", year: "numeric" })}
+                            </span>
+                        </div>
+                        <p className="text-sm text-slate-600 leading-relaxed">{c.comment_text}</p>
+                    </div>
+                ))}
+            </div>
+            <div className="bg-white rounded-xl p-4 border border-slate-200 space-y-3">
+                <p className="text-xs font-bold text-slate-500">Laisser un commentaire</p>
+                {status === "done" ? (
+                    <p className="text-sm text-emerald-600 font-semibold">Merci ! Votre commentaire sera affiché après modération.</p>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={lbl}>Nom <span className="text-corail">*</span></label>
+                                <input value={form.author_name} onChange={e => set("author_name", e.target.value)} className={inp} placeholder="Votre nom"/>
+                            </div>
+                            <div>
+                                <label className={lbl}>Courriel (optionnel)</label>
+                                <input type="email" value={form.author_email} onChange={e => set("author_email", e.target.value)} className={inp} placeholder="votre@courriel.ca"/>
+                            </div>
+                        </div>
+                        <div>
+                            <label className={lbl}>Commentaire <span className="text-corail">*</span></label>
+                            <textarea value={form.comment_text} onChange={e => set("comment_text", e.target.value)}
+                                rows={3} className={`${inp} resize-y`} placeholder="Partagez votre experience avec cette pratique…"/>
+                        </div>
+                        {status === "error" && <p className="text-red-500 text-xs">Une erreur est survenue. Reessayez.</p>}
+                        <button onClick={handleSubmit}
+                            disabled={status === "loading" || !form.author_name.trim() || !form.comment_text.trim()}
+                            className="px-5 py-2 rounded-xl bg-bleu-royal text-white text-xs font-bold hover:bg-bleu-nuit transition-colors disabled:opacity-40">
+                            {status === "loading" ? "Envoi…" : "Soumettre"}
+                        </button>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 // LIGNE DÉTAIL (tags + description + liens)
 // ════════════════════════════════════════════════════════════════════════════
-function DetailRow({ item, colSpan }) {
+function DetailRow({ item, colSpan, rowKey, comments }) {
     const links = [
         { key: 'doc',      label: 'Document'  },
         { key: 'affiche',  label: 'Affiche'   },
@@ -442,6 +626,7 @@ function DetailRow({ item, colSpan }) {
                             ))}
                         </div>
                     )}
+                    <CommentsSection rowKey={rowKey} comments={comments || []} />
                 </div>
             </td>
         </tr>
@@ -454,7 +639,9 @@ function DetailRow({ item, colSpan }) {
 function App() {
     const [allData, setAllData]     = useState([]);
     const [sitesMap, setSitesMap]   = useState({});
-    const [likesMap, setLikesMap]   = useState({});
+    const [likesMap, setLikesMap]         = useState({});
+    const [commentsMap, setCommentsMap]   = useState({});
+    const [commentsByKey, setCommentsByKey] = useState({});
     const [loading, setLoading]     = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [isSiteDropdownOpen, setIsSiteDropdownOpen] = useState(false);
@@ -522,6 +709,12 @@ function App() {
     useEffect(() => { loadData(); }, [loadData]);
 
     // Like
+    const loadCommentsForRow = useCallback(async (rowKey) => {
+        const res = await sbFetch("comments?practice_key=eq." + encodeURIComponent(rowKey) + "&approved=eq.true&order=created_at.asc&select=*");
+        const data = await res.json();
+        setCommentsByKey(prev => ({ ...prev, [rowKey]: Array.isArray(data) ? data : [] }));
+    }, []);
+
     const handleLike = async (rowKey) => {
         const newLikedIds = new Set(likedIds);
         const wasLiked = likedIds.has(rowKey);
@@ -793,7 +986,7 @@ function App() {
                                                 </td>
                                             </tr>
                                             {isExpanded && hasDetails && (
-                                                <DetailRow item={item} colSpan={6} />
+                                                <DetailRow item={item} colSpan={6} rowKey={rowKey} comments={commentsByKey[rowKey] || []} />
                                             )}
                                         </React.Fragment>
                                     );

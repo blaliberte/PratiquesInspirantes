@@ -419,7 +419,7 @@ function SuggestionsPanel({ onClose }) {
                     {!loading && tab === "comments" && (
                         <div className="space-y-4">
                             {comments.length === 0 && <div className="text-center py-16"><p className="text-4xl mb-3">OK</p><p className="text-slate-400 text-sm">Aucun commentaire en attente</p></div>}
-                            {localComments.map(c => (
+                            {comments.map(c => (
                                 <div key={c.id} className="border border-slate-200 rounded-2xl p-5 space-y-3">
                                     <div className="flex items-start justify-between gap-4">
                                         <div>
@@ -452,7 +452,7 @@ function SuggestionsPanel({ onClose }) {
 // ════════════════════════════════════════════════════════════════════════════
 // SECTION COMMENTAIRES
 // ════════════════════════════════════════════════════════════════════════════
-function CommentsSection({ rowKey, comments }) {
+function CommentsSection({ rowKey, comments, onRefresh }) {
     const [form, setForm] = useState({ author_name: "", author_email: "", comment_text: "" });
     const [status, setStatus] = useState("idle");
     const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
@@ -474,28 +474,24 @@ function CommentsSection({ rowKey, comments }) {
     const [refreshing, setRefreshing] = useState(false);
     const handleRefresh = async () => {
         setRefreshing(true);
-        const res = await sbFetch("comments?practice_key=eq." + encodeURIComponent(rowKey) + "&approved=eq.true&order=created_at.asc&select=*");
-        const data = await res.json();
-        if (Array.isArray(data)) setLocalComments(data);
+        await onRefresh(rowKey);
         setRefreshing(false);
     };
-    const [localComments, setLocalComments] = useState(comments);
-    useEffect(() => { setLocalComments(comments); }, [comments]);
 
     return (
         <div className="border-t border-glacier/60 pt-4 space-y-4">
             <div className="flex items-center justify-between">
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                    Commentaires {localComments.length > 0 && <span className="text-bleu-royal">({localComments.length})</span>}
+                    Commentaires {comments.length > 0 && <span className="text-bleu-royal">({comments.length})</span>}
                 </h4>
                 <button onClick={handleRefresh} disabled={refreshing}
                     className="text-[0.65rem] font-bold text-slate-400 hover:text-bleu-royal transition-colors disabled:opacity-50">
                     {refreshing ? "..." : "↺ Rafraîchir"}
                 </button>
             </div>
-            {localComments.length === 0 && <p className="text-xs text-slate-400 italic">Aucun commentaire pour l'instant.</p>}
+            {comments.length === 0 && <p className="text-xs text-slate-400 italic">Aucun commentaire pour l'instant.</p>}
             <div className="space-y-3">
-                {localComments.map(c => (
+                {comments.map(c => (
                     <div key={c.id} className="bg-white rounded-xl p-4 border border-slate-100">
                         <div className="flex items-center justify-between mb-1">
                             <span className="text-xs font-bold text-bleu-nuit">{c.author_name}</span>
@@ -544,7 +540,7 @@ function CommentsSection({ rowKey, comments }) {
 // ════════════════════════════════════════════════════════════════════════════
 // LIGNE DÉTAIL (tags + description + liens)
 // ════════════════════════════════════════════════════════════════════════════
-function DetailRow({ item, colSpan, rowKey, comments }) {
+function DetailRow({ item, colSpan, rowKey, comments, onRefresh }) {
     const links = [
         { key: 'doc',      label: 'Document'  },
         { key: 'affiche',  label: 'Affiche'   },
@@ -571,7 +567,7 @@ function DetailRow({ item, colSpan, rowKey, comments }) {
                             ))}
                         </div>
                     )}
-                    <CommentsSection rowKey={rowKey} comments={comments || []} />
+                    <CommentsSection rowKey={rowKey} comments={comments || []} onRefresh={onRefresh} />
                 </div>
             </td>
         </tr>
@@ -655,9 +651,12 @@ function App() {
 
     // Like
     const loadCommentsForRow = useCallback(async (rowKey) => {
-        const res = await sbFetch("comments?practice_key=eq." + encodeURIComponent(rowKey) + "&approved=eq.true&order=created_at.asc&select=*");
-        const data = await res.json();
-        setCommentsByKey(prev => ({ ...prev, [rowKey]: Array.isArray(data) ? data : [] }));
+        const { data } = await sb.from('comments')
+            .select('*')
+            .eq('practice_key', rowKey)
+            .eq('approved', true)
+            .order('created_at', { ascending: true });
+        setCommentsByKey(prev => ({ ...prev, [rowKey]: data || [] }));
     }, []);
 
     const handleLike = async (rowKey) => {
@@ -852,10 +851,10 @@ function App() {
                                     <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[25%]">Pratique</th>
                                     <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[25%]">Site</th>
                                     <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[15%]">Thème</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[25%]">Type</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[23%]">Type</th>
                                     <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[4%] text-center">❤️</th>
                                     <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[4%] text-center">💬</th>
-                                    <th className="px-4 py-5 w-[2%]"></th>
+                                    <th className="px-4 py-5 w-[4%]"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
@@ -922,12 +921,13 @@ function App() {
                                                     </button>
                                                 </td>
                                                 <td className="px-4 py-5 align-top text-center">
-                                                    <span className="flex flex-col items-center gap-0.5 mx-auto">
+                                                    <button onClick={() => toggleRow(rowKey)}
+                                                        className="flex flex-col items-center gap-0.5 mx-auto cursor-pointer hover:scale-110 transition-all">
                                                         <span className="text-lg">💬</span>
                                                         <span className="text-xs font-bold" style={{color: (commentsMap[rowKey]||0) > 0 ? '#0F408F' : '#cbd5e1'}}>
                                                             {commentsMap[rowKey] || 0}
                                                         </span>
-                                                    </span>
+                                                    </button>
                                                 </td>
                                                 <td className="px-4 py-5 align-top text-center">
                                                     <button onClick={() => toggleRow(rowKey)}
@@ -938,7 +938,7 @@ function App() {
                                                 </td>
                                             </tr>
                                             {isExpanded && hasDetails && (
-                                                <DetailRow item={item} colSpan={7} rowKey={rowKey} comments={commentsByKey[rowKey] || []} />
+                                                <DetailRow item={item} colSpan={7} rowKey={rowKey} comments={commentsByKey[rowKey] || []} onRefresh={loadCommentsForRow} />
                                             )}
                                         </React.Fragment>
                                     );

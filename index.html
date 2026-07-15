@@ -351,9 +351,8 @@ function SuggestionsPanel({ onClose }) {
         setSuggestions(data || []);
     };
     const loadComments = async () => {
-        const res = await sbFetch("comments?approved=eq.false&order=created_at.desc&select=*");
-        const data = await res.json();
-        setComments(Array.isArray(data) ? data : []);
+        const { data } = await sb.from("comments").select("*").eq("approved", false).order("created_at", { ascending: false });
+        setComments(data || []);
     };
     const loadAll = async () => {
         setLoading(true);
@@ -365,11 +364,11 @@ function SuggestionsPanel({ onClose }) {
     const handleRejectSuggestion = async (id) => { await sb.from("suggestions").update({ statut: "rejetee" }).eq("id", id); loadSuggestions(); };
     const handleApproveSuggestion = async (id) => { await sb.from("suggestions").update({ statut: "approuvee" }).eq("id", id); loadSuggestions(); };
     const handleApproveComment = async (id) => {
-        await sbFetch("comments?id=eq." + id, { method: "PATCH", headers: { "Prefer": "return=minimal" }, body: JSON.stringify({ approved: true, approved_at: new Date().toISOString() }) });
+        await sb.from("comments").update({ approved: true, approved_at: new Date().toISOString() }).eq("id", id);
         loadComments();
     };
     const handleDeleteComment = async (id) => {
-        await sbFetch("comments?id=eq." + id, { method: "DELETE" });
+        await sb.from("comments").delete().eq("id", id);
         loadComments();
     };
 

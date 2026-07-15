@@ -480,7 +480,7 @@ function CommentsSection({ rowKey, comments }) {
         setRefreshing(false);
     };
     const [localComments, setLocalComments] = useState(comments);
-    useState(() => { setLocalComments(comments); }, [comments]);
+    useEffect(() => { setLocalComments(comments); }, [comments]);
 
     return (
         <div className="border-t border-glacier/60 pt-4 space-y-4">
@@ -853,13 +853,14 @@ function App() {
                                     <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[25%]">Site</th>
                                     <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[15%]">Thème</th>
                                     <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[25%]">Type</th>
-                                    <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[5%] text-center">❤️</th>
-                                    <th className="px-4 py-5 w-[5%]"></th>
+                                    <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[4%] text-center">❤️</th>
+                                    <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[4%] text-center">💬</th>
+                                    <th className="px-4 py-5 w-[2%]"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredData.length === 0 && (
-                                    <tr><td colSpan={6} className="text-center py-20 text-slate-400 text-sm">Aucun résultat.</td></tr>
+                                    <tr><td colSpan={7} className="text-center py-20 text-slate-400 text-sm">Aucun résultat.</td></tr>
                                 )}
                                 {filteredData.map((item, index) => {
                                     const siteInfo   = sitesMap[item.site] || {};
@@ -921,17 +922,23 @@ function App() {
                                                     </button>
                                                 </td>
                                                 <td className="px-4 py-5 align-top text-center">
-                                                    {hasDetails && (
-                                                        <button onClick={() => toggleRow(rowKey)}
-                                                            style={{ color: isExpanded ? '#0F408F' : '#94a3b8', background: isExpanded ? '#e0eaf9' : 'transparent' }}
-                                                            className="p-1.5 rounded-lg transition-all hover:text-bleu-royal text-sm font-bold">
-                                                            {isExpanded ? '▲' : '▼'}
-                                                        </button>
-                                                    )}
+                                                    <span className="flex flex-col items-center gap-0.5 mx-auto">
+                                                        <span className="text-lg">💬</span>
+                                                        <span className="text-xs font-bold" style={{color: (commentsMap[rowKey]||0) > 0 ? '#0F408F' : '#cbd5e1'}}>
+                                                            {commentsMap[rowKey] || 0}
+                                                        </span>
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-5 align-top text-center">
+                                                    <button onClick={() => toggleRow(rowKey)}
+                                                        style={{ color: isExpanded ? '#0F408F' : '#94a3b8', background: isExpanded ? '#e0eaf9' : 'transparent' }}
+                                                        className="p-1.5 rounded-lg transition-all hover:text-bleu-royal text-sm font-bold">
+                                                        {isExpanded ? '▲' : '▼'}
+                                                    </button>
                                                 </td>
                                             </tr>
                                             {isExpanded && hasDetails && (
-                                                <DetailRow item={item} colSpan={6} rowKey={rowKey} comments={commentsByKey[rowKey] || []} />
+                                                <DetailRow item={item} colSpan={7} rowKey={rowKey} comments={commentsByKey[rowKey] || []} />
                                             )}
                                         </React.Fragment>
                                     );

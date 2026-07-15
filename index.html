@@ -643,6 +643,16 @@ function App() {
             const lmap = {};
             (Array.isArray(likesData) ? likesData : []).forEach(l => lmap[l.pratique_key] = l.count);
             setLikesMap(lmap);
+
+            // 4. Comptage commentaires approuvés
+            const { data: cmtData } = await sb.from('comments')
+                .select('practice_key')
+                .eq('approved', true);
+            const cmap = {};
+            (cmtData || []).forEach(c => {
+                cmap[c.practice_key] = (cmap[c.practice_key] || 0) + 1;
+            });
+            setCommentsMap(cmap);
         } catch(e) { console.error('Erreur chargement:', e); }
         setLoading(false);
     }, []);

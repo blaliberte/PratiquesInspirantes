@@ -714,12 +714,14 @@ function App() {
         });
     };
 
-    const toggleRow = (pratique) => {
+    const toggleRow = (rowKey) => {
+        const isOpen = expandedRows.has(rowKey);
         setExpandedRows(prev => {
             const next = new Set(prev);
-            if (next.has(pratique)) next.delete(pratique); else next.add(pratique);
+            if (next.has(rowKey)) next.delete(rowKey); else next.add(rowKey);
             return next;
         });
+        if (!isOpen) loadCommentsForRow(rowKey);
     };
 
     const getTagStyle = (f) => {
@@ -848,12 +850,12 @@ function App() {
                         <table className="w-full text-left border-collapse table-fixed">
                             <thead>
                                 <tr className="bg-slate-50/80 border-b border-slate-200">
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[25%]">Pratique</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[25%]">Site</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[15%]">Thème</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[23%]">Type</th>
-                                    <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[4%] text-center">❤️</th>
-                                    <th className="px-4 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[4%] text-center">💬</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[24%] text-center">Pratique</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[24%] text-center">Site</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[14%] text-center">Thème</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[22%] text-center">Type</th>
+                                    <th className="px-4 py-5 w-[4%]"></th>
+                                    <th className="px-4 py-5 w-[4%]"></th>
                                     <th className="px-4 py-5 w-[4%]"></th>
                                 </tr>
                             </thead>

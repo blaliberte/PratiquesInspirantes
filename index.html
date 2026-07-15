@@ -656,7 +656,9 @@ function App() {
             .eq('practice_key', rowKey)
             .eq('approved', true)
             .order('created_at', { ascending: true });
-        setCommentsByKey(prev => ({ ...prev, [rowKey]: data || [] }));
+        const comments = data || [];
+        setCommentsByKey(prev => ({ ...prev, [rowKey]: comments }));
+        setCommentsMap(prev => ({ ...prev, [rowKey]: comments.length }));
     }, []);
 
     const handleLike = async (rowKey) => {

@@ -567,7 +567,6 @@ function DetailRow({ item, colSpan, rowKey, comments, onRefresh }) {
                             ))}
                         </div>
                     )}
-                    <CommentsSection rowKey={rowKey} comments={comments || []} onRefresh={onRefresh} />
                 </div>
             </td>
         </tr>
@@ -862,25 +861,22 @@ function App() {
                         <table className="w-full text-left border-collapse table-fixed">
                             <thead>
                                 <tr className="bg-slate-50/80 border-b border-slate-200">
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[24%] text-center">Pratique</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[24%] text-center">Site</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[14%] text-center">Thème</th>
-                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[22%] text-center">Type</th>
-                                    <th className="px-4 py-5 w-[4%]"></th>
-                                    <th className="px-4 py-5 w-[4%]"></th>
-                                    <th className="px-4 py-5 w-[4%]"></th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[27%] text-center">Pratique</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[27%] text-center">Site</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[16%] text-center">Thème</th>
+                                    <th className="px-6 py-5 text-[0.6rem] font-bold text-slate-400 uppercase tracking-widest w-[25%] text-center">Type</th>
+                                    <th className="px-4 py-5 w-[5%]"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
                                 {filteredData.length === 0 && (
-                                    <tr><td colSpan={7} className="text-center py-20 text-slate-400 text-sm">Aucun résultat.</td></tr>
+                                    <tr><td colSpan={5} className="text-center py-20 text-slate-400 text-sm">Aucun résultat.</td></tr>
                                 )}
                                 {filteredData.map((item, index) => {
                                     const siteInfo   = sitesMap[item.site] || {};
                                     const rowKey = item.pratique + "|" + item.site;
                                     const isExpanded = expandedRows.has(rowKey);
-                                    const likeCount  = likesMap[rowKey] || 0;
-                                    const isLiked    = likedIds.has(rowKey);
+
                                     const hasDetails = !!(item.description || item.doc || item.affiche || item.recherche || item.guide);
 
                                     return (
@@ -927,22 +923,8 @@ function App() {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td className="px-4 py-5 align-top text-center">
-                                                    <button onClick={() => handleLike(rowKey)}
-                                                        className="flex flex-col items-center gap-0.5 mx-auto transition-all hover:scale-110 active:scale-95 cursor-pointer">
-                                                        <span className="text-lg">{isLiked ? '❤️' : '🤍'}</span>
-                                                        <span className={`text-xs font-bold ${isLiked ? 'text-corail' : 'text-slate-400'}`}>{likeCount}</span>
-                                                    </button>
-                                                </td>
-                                                <td className="px-4 py-5 align-top text-center">
-                                                    <button onClick={() => toggleRow(rowKey)}
-                                                        className="flex flex-col items-center gap-0.5 mx-auto cursor-pointer hover:scale-110 transition-all">
-                                                        <span className="text-lg">💬</span>
-                                                        <span className="text-xs font-bold" style={{color: (commentsMap[rowKey]||0) > 0 ? '#0F408F' : '#cbd5e1'}}>
-                                                            {commentsMap[rowKey] || 0}
-                                                        </span>
-                                                    </button>
-                                                </td>
+
+
                                                 <td className="px-4 py-5 align-top text-center">
                                                     <button onClick={() => toggleRow(rowKey)}
                                                         style={{ color: isExpanded ? '#0F408F' : '#94a3b8', background: isExpanded ? '#e0eaf9' : 'transparent' }}
@@ -952,7 +934,7 @@ function App() {
                                                 </td>
                                             </tr>
                                             {isExpanded && hasDetails && (
-                                                <DetailRow item={item} colSpan={7} rowKey={rowKey} comments={commentsByKey[rowKey] || []} onRefresh={loadCommentsForRow} />
+                                                <DetailRow item={item} colSpan={5} rowKey={rowKey} comments={commentsByKey[rowKey] || []} onRefresh={loadCommentsForRow} />
                                             )}
                                         </React.Fragment>
                                     );
